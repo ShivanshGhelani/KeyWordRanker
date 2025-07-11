@@ -9,3 +9,29 @@ Create algorithm to match the input keyword against search result titles, snippe
 
 # Test Strategy:
 Test with various keywords and verify accurate rank detection for different match scenarios
+
+# Subtasks:
+## 1. Create exact string matching [pending]
+### Dependencies: None
+### Description: Implement basic string matching
+### Details:
+Create exact string matching function to find keyword occurrences in titles and snippets
+
+## 2. Implement fuzzy matching [pending]
+### Dependencies: None
+### Description: Add fuzzy matching capabilities
+### Details:
+Implement fuzzy matching to handle partial matches, different word orders, and similar phrases
+
+## 3. Add text normalization [pending]
+### Dependencies: None
+### Description: Handle case sensitivity and normalization
+### Details:
+Implement text normalization for case-insensitive matching and handle special characters
+
+## 4. Calculate relevance scores [pending]
+### Dependencies: None
+### Description: Create ranking score calculation
+### Details:
+Implement algorithm to calculate relevance scores for matches and determine the best matching result
+

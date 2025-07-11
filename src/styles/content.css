@@ -1,0 +1,64 @@
+/**
+ * Content Script CSS for Keyword Rank Finder Chrome Extension
+ * Styles injected into Google Search pages
+ */
+
+/* Hide any potential conflicts */
+.keyword-rank-finder-highlight {
+    border: 2px solid #667eea !important;
+    background-color: rgba(102, 126, 234, 0.1) !important;
+    border-radius: 4px !important;
+    padding: 2px !important;
+    margin: 2px 0 !important;
+}
+
+/* Debugging highlight for found results */
+.keyword-rank-finder-found {
+    outline: 3px solid #10b981 !important;
+    outline-offset: 2px !important;
+    background-color: rgba(16, 185, 129, 0.05) !important;
+}
+
+/* Position indicator for debugging */
+.keyword-rank-finder-position {
+    position: absolute !important;
+    top: -5px !important;
+    left: -5px !important;
+    background: #667eea !important;
+    color: white !important;
+    padding: 2px 6px !important;
+    border-radius: 3px !important;
+    font-size: 12px !important;
+    font-weight: bold !important;
+    z-index: 9999 !important;
+    font-family: Arial, sans-serif !important;
+}
+
+/* Ensure no interference with Google's layout */
+.keyword-rank-finder-highlight,
+.keyword-rank-finder-found {
+    position: relative !important;
+}
+
+/* Animation for highlighting */
+@keyframes keyword-rank-finder-pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+.keyword-rank-finder-pulse {
+    animation: keyword-rank-finder-pulse 0.5s ease-in-out !important;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .keyword-rank-finder-highlight {
+        border-color: #8b5cf6 !important;
+        background-color: rgba(139, 92, 246, 0.1) !important;
+    }
+    
+    .keyword-rank-finder-position {
+        background: #8b5cf6 !important;
+    }
+}

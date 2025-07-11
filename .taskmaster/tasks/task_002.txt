@@ -9,3 +9,29 @@ Configure manifest.json with proper permissions, content scripts, popup configur
 
 # Test Strategy:
 Load extension in Chrome and verify it appears in extensions list without errors
+
+# Subtasks:
+## 1. Create basic manifest structure [pending]
+### Dependencies: None
+### Description: Create the basic manifest.json structure
+### Details:
+Set up manifest.json with basic Manifest V3 structure, name, version, and description
+
+## 2. Configure popup action settings [pending]
+### Dependencies: None
+### Description: Configure popup settings in manifest
+### Details:
+Add action configuration for popup.html, set popup dimensions and default popup behavior
+
+## 3. Configure content scripts [pending]
+### Dependencies: None
+### Description: Add content script configuration
+### Details:
+Configure content_scripts section to inject content.js into Google search pages with proper match patterns
+
+## 4. Configure permissions [pending]
+### Dependencies: None
+### Description: Set up required permissions
+### Details:
+Add necessary permissions for activeTab, storage, and host permissions for Google search pages
+

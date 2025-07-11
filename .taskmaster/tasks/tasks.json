@@ -6,29 +6,105 @@
         "title": "Set up Chrome Extension project structure",
         "description": "Create the basic Chrome Extension project structure with all necessary files and directories",
         "details": "Create the foundational files for the Chrome Extension including manifest.json, popup files, content script, and styling. Set up the project directory structure according to Chrome Extension best practices.",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": [],
-        "testStrategy": "Verify all files are created and the extension loads without errors in Chrome"
+        "testStrategy": "Verify all files are created and the extension loads without errors in Chrome",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create project directory structure",
+            "description": "Set up the basic folder structure for the Chrome extension",
+            "details": "Create necessary directories including assets, scripts, styles, and organize the project according to Chrome extension best practices",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 1
+          },
+          {
+            "id": 2,
+            "title": "Create popup.html skeleton",
+            "description": "Create the basic HTML file for the extension popup",
+            "details": "Create popup.html with basic structure, form elements for keyword input, and result display areas",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 1
+          },
+          {
+            "id": 3,
+            "title": "Create popup.css skeleton",
+            "description": "Create the basic CSS file for styling the popup",
+            "details": "Create popup.css with basic styling, layout structure, and responsive design elements",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 1
+          },
+          {
+            "id": 4,
+            "title": "Create JavaScript files skeleton",
+            "description": "Create the basic JavaScript files structure",
+            "details": "Create popup.js and content.js skeleton files with basic structure and placeholder functions",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 1
+          }
+        ]
       },
       {
         "id": 2,
         "title": "Create Manifest V3 configuration",
         "description": "Implement the manifest.json file with proper Manifest V3 specifications",
         "details": "Configure manifest.json with proper permissions, content scripts, popup configurations, and all necessary Chrome Extension APIs for the keyword ranking functionality.",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": [
           1
         ],
-        "testStrategy": "Load extension in Chrome and verify it appears in extensions list without errors"
+        "testStrategy": "Load extension in Chrome and verify it appears in extensions list without errors",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create basic manifest structure",
+            "description": "Create the basic manifest.json structure",
+            "details": "Set up manifest.json with basic Manifest V3 structure, name, version, and description",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 2
+          },
+          {
+            "id": 2,
+            "title": "Configure popup action settings",
+            "description": "Configure popup settings in manifest",
+            "details": "Add action configuration for popup.html, set popup dimensions and default popup behavior",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 2
+          },
+          {
+            "id": 3,
+            "title": "Configure content scripts",
+            "description": "Add content script configuration",
+            "details": "Configure content_scripts section to inject content.js into Google search pages with proper match patterns",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 2
+          },
+          {
+            "id": 4,
+            "title": "Configure permissions",
+            "description": "Set up required permissions",
+            "details": "Add necessary permissions for activeTab, storage, and host permissions for Google search pages",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 2
+          }
+        ]
       },
       {
         "id": 3,
         "title": "Design and implement popup UI",
         "description": "Create the user interface for keyword input and rank display",
         "details": "Design and implement popup.html and popup.css for the extension's user interface. Include keyword input field, 'Check Rank' button, results display area, and loading states.",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": [
           2
@@ -40,7 +116,7 @@
         "title": "Implement popup JavaScript functionality",
         "description": "Add interactive functionality to the popup interface",
         "details": "Implement popup.js to handle user interactions, form validation, communication with content scripts, and result display. Include error handling for empty inputs and API failures.",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": [
           3
@@ -69,7 +145,45 @@
         "dependencies": [
           5
         ],
-        "testStrategy": "Test DOM scraping on various Google search result pages and verify correct data extraction"
+        "testStrategy": "Test DOM scraping on various Google search result pages and verify correct data extraction",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Research Google SERP selectors",
+            "description": "Identify Google search result selectors",
+            "details": "Research and identify the correct CSS selectors for Google search result elements including titles, snippets, and URLs",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 6
+          },
+          {
+            "id": 2,
+            "title": "Implement DOM extraction logic",
+            "description": "Create DOM extraction functions",
+            "details": "Implement functions to extract search result data including title, snippet, URL, and position from DOM elements",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 6
+          },
+          {
+            "id": 3,
+            "title": "Handle layout variations",
+            "description": "Handle different Google result layouts",
+            "details": "Implement logic to handle various Google result layouts, featured snippets, and different result types",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 6
+          },
+          {
+            "id": 4,
+            "title": "Design result data structure",
+            "description": "Create data structure for search results",
+            "details": "Design and implement a consistent data structure to store extracted search result information for processing",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 6
+          }
+        ]
       },
       {
         "id": 7,
@@ -81,7 +195,45 @@
         "dependencies": [
           6
         ],
-        "testStrategy": "Test with various keywords and verify accurate rank detection for different match scenarios"
+        "testStrategy": "Test with various keywords and verify accurate rank detection for different match scenarios",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create exact string matching",
+            "description": "Implement basic string matching",
+            "details": "Create exact string matching function to find keyword occurrences in titles and snippets",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 7
+          },
+          {
+            "id": 2,
+            "title": "Implement fuzzy matching",
+            "description": "Add fuzzy matching capabilities",
+            "details": "Implement fuzzy matching to handle partial matches, different word orders, and similar phrases",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 7
+          },
+          {
+            "id": 3,
+            "title": "Add text normalization",
+            "description": "Handle case sensitivity and normalization",
+            "details": "Implement text normalization for case-insensitive matching and handle special characters",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 7
+          },
+          {
+            "id": 4,
+            "title": "Calculate relevance scores",
+            "description": "Create ranking score calculation",
+            "details": "Implement algorithm to calculate relevance scores for matches and determine the best matching result",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 7
+          }
+        ]
       },
       {
         "id": 8,
@@ -141,7 +293,45 @@
         "dependencies": [
           11
         ],
-        "testStrategy": "Execute full test suite covering all acceptance criteria and edge cases"
+        "testStrategy": "Execute full test suite covering all acceptance criteria and edge cases",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Unit tests for matching logic",
+            "description": "Create unit tests for keyword matching",
+            "details": "Write unit tests for the keyword matching algorithm including exact matches, fuzzy matches, and edge cases",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 12
+          },
+          {
+            "id": 2,
+            "title": "UI interaction testing",
+            "description": "Create UI interaction tests",
+            "details": "Test popup interface interactions, form validation, and user experience flows",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 12
+          },
+          {
+            "id": 3,
+            "title": "Keyword variety testing",
+            "description": "Test different keyword types",
+            "details": "Create test cases for brand keywords, local business terms, long-tail keywords, and special characters",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 12
+          },
+          {
+            "id": 4,
+            "title": "End-to-end integration testing",
+            "description": "Create integration tests",
+            "details": "Test end-to-end functionality from keyword input to rank result display including content script communication",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 12
+          }
+        ]
       },
       {
         "id": 13,
@@ -184,7 +374,10 @@
       "project": "Chrome Extension – Keyword Rank Finder for Google Search",
       "createdAt": "2025-07-11T00:00:00.000Z",
       "updatedAt": "2025-07-11T00:00:00.000Z",
-      "totalTasks": 15
+      "totalTasks": 15,
+      "created": "2025-07-11T06:57:57.703Z",
+      "description": "Tasks for master context",
+      "updated": "2025-07-11T07:39:12.107Z"
     }
   }
 }
