@@ -34,6 +34,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             handleGetTabInfo(sendResponse);
             return true;
             
+        case 'contentScriptReady':
+            console.log('Content script ready on:', request.url);
+            // Store ready status if needed
+            sendResponse({ success: true });
+            return true;
+            
         default:
             sendResponse({ error: 'Unknown action' });
     }

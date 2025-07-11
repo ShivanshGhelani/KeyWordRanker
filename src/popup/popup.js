@@ -116,14 +116,45 @@ class KeywordRankFinder {
             
             if (!tab) return;
             
-            if (!tab.url.includes('google.com')) {
-                this.showPageWarning('For best results, navigate to Google search first.');
+            if (!tab.url.includes('google.com/search?q=')) {
+                this.showPageWarning('Please search for your main term on Google first (e.g., "best boutique in ahmedabad"), then use this extension to find your keyword rank in those results.');
             } else {
-                this.clearPageWarning();
+                // Get the current search query and show it
+                try {
+                    const currentQuery = await this.getCurrentSearchQuery(tab.id);
+                    this.showPageInfo(`Ready to analyze results for: "${currentQuery}"`);
+                } catch (error) {
+                    this.showPageInfo('Ready to analyze current Google search results');
+                }
             }
         } catch (error) {
             console.warn('Could not check current page:', error);
         }
+    }
+    
+    showPageInfo(message) {
+        // Create info element if it doesn't exist
+        let info = document.getElementById('pageInfo');
+        if (!info) {
+            info = document.createElement('div');
+            info.id = 'pageInfo';
+            info.style.cssText = `
+                background: #dcfce7;
+                border: 1px solid #16a34a;
+                color: #15803d;
+                padding: 8px;
+                border-radius: 4px;
+                font-size: 12px;
+                margin-bottom: 12px;
+                text-align: center;
+            `;
+            this.form.parentNode.insertBefore(info, this.form);
+        }
+        info.textContent = message;
+        info.style.display = 'block';
+        
+        // Hide any warning
+        this.clearPageWarning();
     }
     
     showPageWarning(message) {
@@ -152,6 +183,13 @@ class KeywordRankFinder {
         const warning = document.getElementById('pageWarning');
         if (warning) {
             warning.style.display = 'none';
+        }
+    }
+    
+    clearPageInfo() {
+        const info = document.getElementById('pageInfo');
+        if (info) {
+            info.style.display = 'none';
         }
     }
     
@@ -236,28 +274,36 @@ class KeywordRankFinder {
     
     async performRealRankCheck(keyword) {
         try {
-            // First check if we're on a Google search page
             const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
             
-            if (!currentTab.url.includes('google.com')) {
-                // Navigate to Google search
-                const domain = this.googleDomain.value || 'google.com';
-                const searchUrl = `https://www.${domain}/search?q=${encodeURIComponent(keyword)}`;
-                
-                await chrome.tabs.update(currentTab.id, { url: searchUrl });
-                
-                // Wait for page to load and content script to be ready
-                await this.waitForPageLoad(currentTab.id);
+            // Check if we're on a Google search results page
+            if (!this.isOnGoogleSearchResultsPage(currentTab.url)) {
+                throw new Error('Please navigate to Google, search for your main term (e.g., "best boutique in ahmedabad"), then use this extension to find the rank of your keyword in those results.');
             }
             
-            // Send scraping request to content script
+            // Ensure content script is loaded before proceeding
+            await this.ensureContentScriptLoaded(currentTab.id);
+            
+            // Get the current search query from the page
+            const currentSearchQuery = await this.getCurrentSearchQuery(currentTab.id);
+            
+            // Small delay before scraping current page results
+            await this.addRandomDelay(200, 500);
+            
+            // Send scraping request to analyze CURRENT page results
             const response = await this.sendMessageToContentScript({
-                action: 'scrapeResults',
-                keyword: keyword
+                action: 'scrapeCurrentPageResults',
+                keyword: keyword,
+                currentSearchQuery: currentSearchQuery,
+                options: {
+                    maxResults: parseInt(this.resultsLimit.value) || 100,
+                    fuzzyMatching: true,
+                    highlightResults: false
+                }
             });
             
             if (!response.success) {
-                throw new Error(response.error || 'Failed to scrape search results');
+                throw new Error(response.error || 'Failed to analyze current search results');
             }
             
             // Transform content script response to our format
@@ -266,7 +312,9 @@ class KeywordRankFinder {
                 found: response.ranking.found,
                 matchType: response.ranking.matchedIn || 'unknown',
                 fuzzy: response.ranking.fuzzy || false,
-                totalResults: response.totalResults
+                totalResults: response.totalResults,
+                currentSearchQuery: currentSearchQuery,
+                analyzedCurrentPage: true
             };
             
         } catch (error) {
@@ -275,33 +323,255 @@ class KeywordRankFinder {
         }
     }
     
-    async waitForPageLoad(tabId, maxWait = 10000) {
-        const startTime = Date.now();
-        
-        while (Date.now() - startTime < maxWait) {
+    isOnGoogleSearchResultsPage(url) {
+        return url && url.includes('google.com/search?q=');
+    }
+    
+    async getCurrentSearchQuery(tabId) {
+        try {
+            // First ensure content script is loaded
+            await this.ensureContentScriptLoaded(tabId);
+            
+            const response = await this.sendMessageToContentScript({
+                action: 'getCurrentSearchQuery'
+            });
+            
+            return response.searchQuery || 'Unknown search';
+        } catch (error) {
+            console.warn('Could not get current search query:', error);
+            return 'Current search results';
+        }
+    }
+    
+    async ensureContentScriptLoaded(tabId, maxAttempts = 5) {
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                // Try to ping the content script
                 const response = await chrome.tabs.sendMessage(tabId, { action: 'ping' });
                 if (response && response.status === 'alive') {
-                    // Give it a bit more time to fully load
-                    await new Promise(resolve => setTimeout(resolve, 1000));
                     return true;
                 }
             } catch (error) {
-                // Content script not ready yet, wait and retry
-                await new Promise(resolve => setTimeout(resolve, 500));
+                console.log(`Content script not ready, attempt ${attempt}/${maxAttempts}`);
+                
+                if (attempt === maxAttempts) {
+                    // Try to inject the content script manually
+                    try {
+                        await chrome.scripting.executeScript({
+                            target: { tabId: tabId },
+                            files: ['src/scripts/content.js']
+                        });
+                        
+                        await chrome.scripting.insertCSS({
+                            target: { tabId: tabId },
+                            files: ['src/styles/content.css']
+                        });
+                        
+                        // Wait a bit for the script to initialize
+                        await this.addRandomDelay(1000, 2000);
+                        
+                        // Try one more time
+                        const finalResponse = await chrome.tabs.sendMessage(tabId, { action: 'ping' });
+                        if (finalResponse && finalResponse.status === 'alive') {
+                            return true;
+                        }
+                    } catch (injectionError) {
+                        console.error('Failed to inject content script:', injectionError);
+                    }
+                    
+                    throw new Error('Content script not loaded. Please reload the Google search page and try again.');
+                }
+                
+                // Wait before retrying
+                await this.addRandomDelay(500, 1000);
+            }
+        }
+    }
+    
+    buildAdvancedSearchParams(keyword) {
+        const domain = this.googleDomain.value || 'google.com';
+        const settings = this.getSearchSettings();
+        
+        // Build sophisticated search parameters
+        const params = new URLSearchParams();
+        params.set('q', this.optimizeSearchQuery(keyword));
+        
+        // Add region/language parameters based on domain
+        const regionMap = {
+            'google.com': { hl: 'en', gl: 'US' },
+            'google.co.uk': { hl: 'en', gl: 'GB' },
+            'google.ca': { hl: 'en', gl: 'CA' },
+            'google.com.au': { hl: 'en', gl: 'AU' }
+        };
+        
+        const regionSettings = regionMap[domain] || regionMap['google.com'];
+        params.set('hl', regionSettings.hl);
+        params.set('gl', regionSettings.gl);
+        
+        // Add result count parameter
+        const numResults = Math.min(parseInt(this.resultsLimit.value) || 100, 100);
+        params.set('num', numResults.toString());
+        
+        // Add source parameter to indicate organic search
+        params.set('source', 'hp');
+        
+        // Add user interface language
+        params.set('uule', this.generateLocationParameter(regionSettings.gl));
+        
+        return {
+            domain: domain,
+            queryString: params.toString(),
+            fullUrl: `https://www.${domain}/search?${params.toString()}`,
+            originalKeyword: keyword,
+            optimizedQuery: this.optimizeSearchQuery(keyword),
+            region: regionSettings
+        };
+    }
+    
+    optimizeSearchQuery(keyword) {
+        // Clean and optimize the search query
+        let optimized = keyword.trim();
+        
+        // Remove excessive whitespace
+        optimized = optimized.replace(/\s+/g, ' ');
+        
+        // Handle special characters that might interfere with search
+        // Keep quotes and operators but sanitize problematic characters
+        optimized = optimized.replace(/[<>]/g, '');
+        
+        return optimized;
+    }
+    
+    generateLocationParameter(countryCode) {
+        // Generate a location parameter for more accurate regional results
+        const locationMap = {
+            'US': 'w+CAIQICINVVMiDFVuaXRlZCBTdGF0ZXM',
+            'GB': 'w+CAIQICIKVVMaGUdyZWF0IEJyaXRhaW4',
+            'CA': 'w+CAIQICIGVVMaB0NhbmFkYQ',
+            'AU': 'w+CAIQICIJVVMaCUF1c3RyYWxpYQ'
+        };
+        
+        return locationMap[countryCode] || locationMap['US'];
+    }
+    
+    getSearchSettings() {
+        // Get current search settings from UI
+        return {
+            domain: this.googleDomain.value || 'google.com',
+            resultsLimit: parseInt(this.resultsLimit.value) || 100,
+            enableNotifications: this.enableNotifications?.checked || false,
+            openInNewTab: this.openInNewTab?.checked || false
+        };
+    }
+    
+    isValidGoogleSearchPage(url, keyword) {
+        if (!url || !url.includes('google.com')) {
+            return false;
+        }
+        
+        // Check if already on a search page with the same keyword
+        try {
+            const urlObj = new URL(url);
+            const currentQuery = urlObj.searchParams.get('q');
+            const optimizedKeyword = this.optimizeSearchQuery(keyword);
+            
+            return currentQuery && 
+                   this.normalizeSearchQuery(currentQuery) === this.normalizeSearchQuery(optimizedKeyword);
+        } catch (error) {
+            return false;
+        }
+    }
+    
+    normalizeSearchQuery(query) {
+        return query.toLowerCase().replace(/\s+/g, ' ').trim();
+    }
+    
+    async navigateToGoogleSearch(tabId, searchParams) {
+        try {
+            // Add pre-navigation delay to appear more human-like
+            await this.addRandomDelay(300, 800);
+            
+            // Navigate to the search URL
+            await chrome.tabs.update(tabId, { url: searchParams.fullUrl });
+            
+            // Log navigation for debugging
+            console.log('Navigated to:', searchParams.fullUrl);
+            
+        } catch (error) {
+            throw new Error(`Failed to navigate to Google search: ${error.message}`);
+        }
+    }
+    
+    async addRandomDelay(min = 500, max = 1500) {
+        // Add human-like random delays to avoid bot detection
+        const delay = Math.random() * (max - min) + min;
+        return new Promise(resolve => setTimeout(resolve, delay));
+    }
+    
+    async waitForPageLoad(tabId, maxWait = 15000) {
+        const startTime = Date.now();
+        let attempts = 0;
+        const maxAttempts = 8;
+        
+        while (Date.now() - startTime < maxWait && attempts < maxAttempts) {
+            try {
+                attempts++;
+                
+                // Add progressive delay between attempts to avoid rapid pinging
+                const baseDelay = Math.min(attempts * 200, 1000);
+                await this.addRandomDelay(baseDelay, baseDelay + 500);
+                
+                // Try to ping the content script
+                const response = await chrome.tabs.sendMessage(tabId, { 
+                    action: 'ping',
+                    timestamp: Date.now()
+                });
+                
+                if (response && response.status === 'alive') {
+                    // Content script is ready, but wait a bit more for DOM to stabilize
+                    await this.addRandomDelay(800, 1500);
+                    
+                    // Verify page is actually loaded by checking for search results
+                    const verificationResponse = await chrome.tabs.sendMessage(tabId, {
+                        action: 'verifyPageReady'
+                    });
+                    
+                    if (verificationResponse && verificationResponse.ready) {
+                        console.log(`Page loaded successfully after ${attempts} attempts`);
+                        return true;
+                    }
+                }
+            } catch (error) {
+                // Content script not ready yet, continue waiting
+                if (attempts === 1) {
+                    console.log('Waiting for content script to load...');
+                }
+                
+                // If we're getting close to timeout, try a page refresh
+                if (attempts === maxAttempts - 1 && Date.now() - startTime > maxWait * 0.8) {
+                    console.log('Attempting page refresh due to loading issues...');
+                    try {
+                        await chrome.tabs.reload(tabId);
+                        await this.addRandomDelay(2000, 3000); // Wait for refresh
+                    } catch (refreshError) {
+                        console.warn('Failed to refresh page:', refreshError);
+                    }
+                }
             }
         }
         
-        throw new Error('Timeout waiting for Google search page to load');
+        throw new Error(`Timeout waiting for Google search page to load (${Math.round((Date.now() - startTime) / 1000)}s)`);
     }
     
     displayResults(result, keyword) {
         const searchDuration = Date.now() - this.searchStartTime;
-        this.searchTime.textContent = `Search completed in ${(searchDuration / 1000).toFixed(1)}s`;
+        this.searchTime.textContent = `Analysis completed in ${(searchDuration / 1000).toFixed(1)}s`;
         
         this.resultsSection.classList.remove('hidden');
         this.resultsSection.classList.add('fade-in');
+        
+        const searchContext = result.currentSearchQuery ? 
+            ` in search results for "${result.currentSearchQuery}"` : 
+            ' in current Google search results';
         
         if (result.found) {
             const fuzzyText = result.fuzzy ? ' (fuzzy match)' : '';
@@ -311,10 +581,10 @@ class KeywordRankFinder {
                 <div class="rank-result">
                     <div class="rank-number">#${result.rank}</div>
                     <div class="rank-text">
-                        "${keyword}" appears at position <strong>${result.rank}</strong> in Google search results${fuzzyText}
+                        "${keyword}" appears at position <strong>${result.rank}</strong>${searchContext}${fuzzyText}
                     </div>
                     <div class="rank-details">
-                        Found in: ${result.matchType}${totalResultsText} • Search took ${(searchDuration / 1000).toFixed(1)} seconds
+                        Found in: ${result.matchType}${totalResultsText} • Analysis took ${(searchDuration / 1000).toFixed(1)} seconds
                     </div>
                 </div>
             `;
@@ -325,10 +595,10 @@ class KeywordRankFinder {
                 <div class="rank-result" style="border-left-color: #f59e0b;">
                     <div class="rank-number" style="color: #f59e0b;">Not Found</div>
                     <div class="rank-text">
-                        "${keyword}" was not found in the ${totalResultsText}Google search results
+                        "${keyword}" was not found${searchContext}
                     </div>
                     <div class="rank-details">
-                        Search took ${(searchDuration / 1000).toFixed(1)} seconds
+                        Analyzed ${totalResultsText}results • Analysis took ${(searchDuration / 1000).toFixed(1)} seconds
                     </div>
                 </div>
             `;
@@ -573,8 +843,8 @@ class KeywordRankFinder {
                 throw new Error('No active tab found');
             }
             
-            if (!tab.url.includes('google.com')) {
-                throw new Error('Please navigate to a Google search page first');
+            if (!tab.url.includes('google.com/search')) {
+                throw new Error('Please navigate to Google, search for your main term, then use this extension to find your keyword rank in those results.');
             }
             
             const response = await chrome.tabs.sendMessage(tab.id, message);
@@ -587,11 +857,14 @@ class KeywordRankFinder {
         } catch (error) {
             console.error('Failed to communicate with content script:', error);
             
-            // Provide more helpful error messages
-            if (error.message.includes('Could not establish connection')) {
+            // Provide more helpful error messages based on error type
+            if (error.message.includes('Could not establish connection') || 
+                error.message.includes('Receiving end does not exist')) {
                 throw new Error('Content script not loaded. Please reload the Google search page and try again.');
             } else if (error.message.includes('No tab')) {
                 throw new Error('No active tab found. Please open a browser tab and try again.');
+            } else if (error.message.includes('Cannot access chrome://')) {
+                throw new Error('Please navigate to a regular Google search page, not a Chrome system page.');
             }
             
             throw error;

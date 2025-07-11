@@ -1,0 +1,1812 @@
+/**
+ * Content Script for Keyword Rank Finder Chrome Extension
+ * Injected into Google Search pages to scrape and analyze SERP data
+ */
+
+class GoogleSERPScraper {
+    constructor() {
+        // Enhanced SERP selectors with comprehensive coverage
+        this.resultSelectors = {
+            // Main organic search results - multiple selector strategies
+            organicResults: [
+                'div[data-header-feature] h3',
+                '.g h3',
+                '.MjjYud h3',
+                '.tF2Cxc h3',
+                '.yuRUbf h3'
+            ],
+            
+            // Result containers - ordered by priority
+            resultContainers: [
+                '.g',                     // Traditional Google result container
+                '.MjjYud',               // Modern result container
+                '.tF2Cxc',               // Another modern container variant
+                'div[data-header-feature]', // Featured results
+                '.yuRUbf',               // Link container that often wraps results
+                '.commercial-unit-desktop-top' // Ad containers (if including ads)
+            ],
+            
+            // Snippets and descriptions - comprehensive selectors
+            snippets: [
+                '.VwiC3b',               // Main snippet container
+                '.s',                    // Legacy snippet
+                '.IsZvec',               // Alternative snippet
+                '.lEBKkf',               // Another snippet variant
+                '.hgKElc',               // Rich snippets
+                '.kCrYT',                // Featured snippet descriptions
+                '[data-content-feature="1"] .hgKElc' // Rich content snippets
+            ],
+            
+            // URL selectors - multiple patterns
+            urls: [
+                '.yuRUbf a',             // Primary URL selector
+                '.dmenKe a',             // Alternative URL
+                '.g a h3',               // Title link
+                '.tF2Cxc a',             // Container link
+                '.MjjYud a h3'           // Modern container title link
+            ],
+            
+            // Special content types
+            featuredSnippets: [
+                '.xpc',                  // Featured snippet box
+                '.kCrYT',                // Featured snippet content
+                '[data-attrid="FeaturedSnippet"]',
+                '.ULSxyf'                // Featured snippet container
+            ],
+            
+            // Knowledge panels and cards
+            knowledgePanel: [
+                '.kp-blk',               // Knowledge panel block
+                '.knowledge-panel',       // Knowledge panel
+                '.xpdopen .g',           // Expanded knowledge cards
+                '.kp-wholepage'          // Full page knowledge panel
+            ],
+            
+            // Shopping results
+            shoppingResults: [
+                '.pla-unit',             // Shopping unit
+                '.commercial-unit-desktop-rhs', // Right-hand shopping
+                '.pla-hovercard-content-ellip' // Shopping hover cards
+            ],
+            
+            // News results
+            newsResults: [
+                '.SoaBEf',               // News card container
+                '.dbsr',                 // News result
+                '.WlydOe'                // News cluster
+            ],
+            
+            // Image results
+            imageResults: [
+                '.isv-r',                // Image search result
+                '.rg_i'                  // Individual image
+            ],
+            
+            // Video results
+            videoResults: [
+                '.P94G9b',               // Video thumbnail container
+                '.dXiKIc'                // Video result container
+            ],
+            
+            // Utility selectors
+            nextButton: '#pnnext',
+            searchStats: '#result-stats',
+            searchInput: 'input[name="q"]',
+            noResults: '.v3jTId, .AaVjTc',
+            spellingSuggestion: '[data-spelling-corrected]'
+        };
+        
+        // Enhanced result type classification
+        this.resultTypes = {
+            ORGANIC: 'organic',
+            FEATURED_SNIPPET: 'featured_snippet',
+            KNOWLEDGE_PANEL: 'knowledge_panel',
+            SHOPPING: 'shopping',
+            NEWS: 'news',
+            IMAGE: 'image',
+            VIDEO: 'video',
+            AD: 'advertisement',
+            LOCAL: 'local'
+        };
+        
+        this.currentResults = [];
+        this.scrapingCache = new Map(); // Cache for performance
+        this.init();
+    }
+    
+    init() {
+        console.log('Keyword Rank Finder: Content script loaded on:', window.location.href);
+        this.setupMessageListener();
+        this.observePageChanges();
+        
+        // Send a ready signal to any waiting popups
+        this.sendReadySignal();
+    }
+    
+    sendReadySignal() {
+        // This helps the popup know the content script is ready
+        try {
+            chrome.runtime.sendMessage({ 
+                action: 'contentScriptReady', 
+                url: window.location.href,
+                timestamp: Date.now() 
+            });
+        } catch (error) {
+            // Ignore errors - popup might not be open
+        }
+    }
+    
+    setupMessageListener() {
+        chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+            console.log('Content script received message:', request);
+            
+            switch (request.action) {
+                case 'scrapeResults':
+                case 'scrapeCurrentPageResults':
+                    this.handleScrapeRequest(request, sendResponse);
+                    return true; // Keep the message channel open for async response
+                    
+                case 'getCurrentSearchQuery':
+                    this.handleGetCurrentSearchQuery(request, sendResponse);
+                    return true;
+                    
+                case 'searchKeyword':
+                    this.handleSearchRequest(request, sendResponse);
+                    return true;
+                    
+                case 'ping':
+                    sendResponse({ 
+                        status: 'alive', 
+                        timestamp: Date.now(),
+                        url: window.location.href 
+                    });
+                    break;
+                    
+                case 'verifyPageReady':
+                    this.handlePageReadyVerification(request, sendResponse);
+                    return true;
+                    
+                default:
+                    console.warn('Unknown action:', request.action);
+                    sendResponse({ error: 'Unknown action' });
+            }
+        });
+    }
+    
+    async handleScrapeRequest(request, sendResponse) {
+        try {
+            const keyword = request.keyword;
+            const options = request.options || {};
+            const isCurrentPageAnalysis = request.action === 'scrapeCurrentPageResults';
+            
+            // Add a small delay for current page analysis (less aggressive than new searches)
+            if (isCurrentPageAnalysis) {
+                await this.addRandomDelay(100, 300);
+            } else {
+                await this.addRandomDelay(300, 800);
+            }
+            
+            // Get current search query for context
+            const currentSearchQuery = this.extractCurrentSearchQuery();
+            
+            // Scrape search results with enhanced options
+            const results = this.scrapeSearchResults(options);
+            
+            // Apply result limit if specified
+            const maxResults = options.maxResults || 100;
+            const limitedResults = results.slice(0, maxResults);
+            
+            // Find keyword ranking with enhanced matching
+            const ranking = this.findKeywordRanking(keyword, limitedResults, options);
+            
+            // Add search metadata
+            const metadata = {
+                currentSearchQuery: currentSearchQuery,
+                isCurrentPageAnalysis: isCurrentPageAnalysis,
+                scrapedAt: new Date().toISOString(),
+                totalFound: results.length,
+                limitApplied: maxResults,
+                pageUrl: window.location.href
+            };
+            
+            sendResponse({
+                success: true,
+                keyword: keyword,
+                ranking: ranking,
+                totalResults: limitedResults.length,
+                results: limitedResults.slice(0, 10), // Send first 10 for debugging
+                metadata: metadata,
+                currentSearchQuery: currentSearchQuery
+            });
+        } catch (error) {
+            console.error('Error scraping results:', error);
+            sendResponse({
+                success: false,
+                error: error.message,
+                details: {
+                    keyword: request.keyword,
+                    url: window.location.href,
+                    timestamp: new Date().toISOString(),
+                    isCurrentPageAnalysis: request.action === 'scrapeCurrentPageResults'
+                }
+            });
+        }
+    }
+    
+    async handleSearchRequest(request, sendResponse) {
+        try {
+            const keyword = request.keyword;
+            
+            // Navigate to Google search with the keyword
+            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(keyword)}`;
+            
+            if (window.location.href !== searchUrl) {
+                window.location.href = searchUrl;
+                // Wait for page to load
+                setTimeout(() => {
+                    sendResponse({ success: true, message: 'Navigated to search page' });
+                }, 2000);
+            } else {
+                // Already on the search page
+                sendResponse({ success: true, message: 'Already on search page' });
+            }
+        } catch (error) {
+            sendResponse({ success: false, error: error.message });
+        }
+    }
+    
+    async handlePageReadyVerification(request, sendResponse) {
+        try {
+            // Check if the page has search results loaded
+            const hasResults = this.verifySearchResultsPresent();
+            const hasSearchBox = document.querySelector('input[name="q"]') !== null;
+            const isGoogleSearch = window.location.href.includes('google.com/search');
+            
+            const pageReady = hasResults && hasSearchBox && isGoogleSearch;
+            
+            sendResponse({
+                ready: pageReady,
+                details: {
+                    hasResults: hasResults,
+                    hasSearchBox: hasSearchBox,
+                    isGoogleSearch: isGoogleSearch,
+                    url: window.location.href,
+                    resultCount: this.getResultCount()
+                }
+            });
+        } catch (error) {
+            console.error('Error verifying page ready:', error);
+            sendResponse({
+                ready: false,
+                error: error.message
+            });
+        }
+    }
+    
+    async handleGetCurrentSearchQuery(request, sendResponse) {
+        try {
+            const searchQuery = this.extractCurrentSearchQuery();
+            
+            sendResponse({
+                success: true,
+                searchQuery: searchQuery,
+                url: window.location.href
+            });
+        } catch (error) {
+            console.error('Error getting current search query:', error);
+            sendResponse({
+                success: false,
+                error: error.message,
+                searchQuery: 'Unknown search'
+            });
+        }
+    }
+    
+    extractCurrentSearchQuery() {
+        // Method 1: Get from URL parameters
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const query = urlParams.get('q');
+            if (query) {
+                return decodeURIComponent(query);
+            }
+        } catch (error) {
+            console.warn('Could not extract query from URL:', error);
+        }
+        
+        // Method 2: Get from search input field
+        try {
+            const searchInput = document.querySelector('input[name="q"]');
+            if (searchInput && searchInput.value) {
+                return searchInput.value;
+            }
+        } catch (error) {
+            console.warn('Could not extract query from input field:', error);
+        }
+        
+        // Method 3: Get from page title or meta tags
+        try {
+            const title = document.title;
+            if (title && title.includes(' - Google Search')) {
+                return title.replace(' - Google Search', '');
+            }
+        } catch (error) {
+            console.warn('Could not extract query from page title:', error);
+        }
+        
+        return 'Current search results';
+    }
+    
+    scrapeSearchResults(options = {}) {
+        const results = [];
+        const cacheKey = `scrape_${Date.now()}_${JSON.stringify(options)}`;
+        
+        try {
+            console.log('🔍 Starting enhanced SERP scraping with options:', options);
+            
+            // Phase 1: Try primary result containers in order of preference
+            let resultElements = this.getResultContainers();
+            
+            if (resultElements.length === 0) {
+                console.warn('⚠️ No result containers found, trying fallback strategies');
+                resultElements = this.getFallbackResults();
+            }
+            
+            console.log(`✅ Found ${resultElements.length} result containers`);
+            
+            // Phase 2: Process each container with enhanced extraction
+            resultElements.forEach((container, index) => {
+                try {
+                    const result = this.extractResultData(container, index + 1, options);
+                    
+                    if (result && this.isValidResult(result, options)) {
+                        results.push(result);
+                    }
+                } catch (error) {
+                    console.warn(`⚠️ Error processing result container ${index + 1}:`, error);
+                }
+            });
+            
+            // Phase 3: Post-process results
+            const processedResults = this.postProcessResults(results, options);
+            
+            // Cache results for performance
+            this.scrapingCache.set(cacheKey, {
+                results: processedResults,
+                timestamp: Date.now(),
+                options: options
+            });
+            
+            // Clean old cache entries (keep only last 5)
+            if (this.scrapingCache.size > 5) {
+                const oldestKey = Array.from(this.scrapingCache.keys())[0];
+                this.scrapingCache.delete(oldestKey);
+            }
+            
+            console.log(`🎯 Successfully scraped ${processedResults.length} results`);
+            this.currentResults = processedResults;
+            return processedResults;
+            
+        } catch (error) {
+            console.error('💥 Error in enhanced SERP scraping:', error);
+            return this.currentResults; // Return cached results if available
+        }
+    }
+    
+    getResultContainers() {
+        // Try each container selector in order of preference
+        for (const selector of this.resultSelectors.resultContainers) {
+            const elements = document.querySelectorAll(selector);
+            if (elements.length > 0) {
+                console.log(`📋 Using container selector: ${selector} (found ${elements.length} elements)`);
+                return Array.from(elements);
+            }
+        }
+        return [];
+    }
+    
+    getFallbackResults() {
+        console.log('🔄 Trying fallback result extraction strategies');
+        
+        // Fallback strategy 1: Look for any element with h3 titles
+        let elements = document.querySelectorAll('h3');
+        if (elements.length > 0) {
+            // Filter to likely search results (have parent with link)
+            const filtered = Array.from(elements).filter(h3 => {
+                const parent = h3.closest('div');
+                return parent && parent.querySelector('a');
+            }).map(h3 => h3.closest('div'));
+            
+            if (filtered.length > 0) {
+                console.log(`📋 Fallback 1: Found ${filtered.length} results via h3 elements`);
+                return filtered;
+            }
+        }
+        
+        // Fallback strategy 2: Look for common Google result patterns
+        const fallbackSelectors = [
+            '[data-header-feature]',
+            '[jscontroller]',
+            '.commercial-unit-desktop-top',
+            '.uEierd', // Featured snippets
+            '.xpc'     // Rich snippets
+        ];
+        
+        for (const selector of fallbackSelectors) {
+            elements = document.querySelectorAll(selector);
+            if (elements.length > 0) {
+                console.log(`📋 Fallback 2: Found ${elements.length} results via ${selector}`);
+                return Array.from(elements);
+            }
+        }
+        
+        // Fallback strategy 3: Generic content analysis
+        elements = document.querySelectorAll('div[data-ved], div[data-hveid]');
+        if (elements.length > 0) {
+            console.log(`📋 Fallback 3: Found ${elements.length} results via data attributes`);
+            return Array.from(elements);
+        }
+        
+        console.warn('🚫 No results found with any strategy');
+        return [];
+    }
+    
+    extractResultData(container, position, options = {}) {
+        // Enhanced result data extraction with multiple strategies
+        const result = {
+            position: position,
+            title: '',
+            url: '',
+            snippet: '',
+            element: container,
+            type: this.resultTypes.ORGANIC,
+            metadata: {
+                scrapedAt: Date.now(),
+                hasSnippet: false,
+                hasImage: false,
+                hasRating: false,
+                linkDomain: 'unknown',
+                confidence: 0
+            },
+            attributes: {}
+        };
+        
+        // Extract title with multiple strategies
+        result.title = this.extractTitle(container);
+        
+        // Extract URL with multiple strategies  
+        result.url = this.extractUrl(container);
+        
+        // Extract snippet/description
+        result.snippet = this.extractSnippet(container);
+        
+        // Classify result type
+        result.type = this.classifyResultType(container);
+        
+        // Extract additional metadata
+        this.extractMetadata(container, result);
+        
+        // Calculate confidence score
+        result.metadata.confidence = this.calculateConfidence(result);
+        
+        return result;
+    }
+    
+    extractTitle(container) {
+        // Try multiple title extraction strategies
+        const titleSelectors = [
+            'h3',
+            '[role="heading"]',
+            '.LC20lb',
+            '.DKV0Md',
+            '.lEBKkf'
+        ];
+        
+        for (const selector of titleSelectors) {
+            const titleElement = container.querySelector(selector);
+            if (titleElement && titleElement.textContent.trim()) {
+                return titleElement.textContent.trim();
+            }
+        }
+        
+        return '';
+    }
+    
+    extractUrl(container) {
+        // Try multiple URL extraction strategies
+        for (const selectorArray of this.resultSelectors.urls) {
+            const selectors = Array.isArray(selectorArray) ? selectorArray : [selectorArray];
+            
+            for (const selector of selectors) {
+                const linkElement = container.querySelector(selector);
+                if (linkElement && linkElement.href) {
+                    return linkElement.href;
+                }
+            }
+        }
+        
+        // Fallback: any link in the container
+        const anyLink = container.querySelector('a[href]');
+        return anyLink ? anyLink.href : '';
+    }
+    
+    extractSnippet(container) {
+        // Try multiple snippet extraction strategies
+        const snippetSelectors = this.resultSelectors.snippets;
+        
+        for (const selector of snippetSelectors) {
+            const snippetElement = container.querySelector(selector);
+            if (snippetElement && snippetElement.textContent.trim()) {
+                return snippetElement.textContent.trim();
+            }
+        }
+        
+        // Fallback: look for any text content that looks like a snippet
+        const textElements = container.querySelectorAll('span, div');
+        for (const element of textElements) {
+            const text = element.textContent.trim();
+            if (text.length > 50 && text.length < 500 && !text.includes('http')) {
+                return text;
+            }
+        }
+        
+        return '';
+    }
+    
+    classifyResultType(container) {
+        // Classify the type of search result
+        
+        // Check for featured snippets
+        if (this.resultSelectors.featuredSnippets.some(selector => 
+            container.matches(selector) || container.querySelector(selector))) {
+            return this.resultTypes.FEATURED_SNIPPET;
+        }
+        
+        // Check for knowledge panel
+        if (this.resultSelectors.knowledgePanel.some(selector => 
+            container.matches(selector) || container.querySelector(selector))) {
+            return this.resultTypes.KNOWLEDGE_PANEL;
+        }
+        
+        // Check for shopping results
+        if (this.resultSelectors.shoppingResults.some(selector => 
+            container.matches(selector) || container.querySelector(selector))) {
+            return this.resultTypes.SHOPPING;
+        }
+        
+        // Check for news results
+        if (this.resultSelectors.newsResults.some(selector => 
+            container.matches(selector) || container.querySelector(selector))) {
+            return this.resultTypes.NEWS;
+        }
+        
+        // Check for video results
+        if (this.resultSelectors.videoResults.some(selector => 
+            container.matches(selector) || container.querySelector(selector))) {
+            return this.resultTypes.VIDEO;
+        }
+        
+        // Check for advertisements
+        if (this.isAdvertisement(container)) {
+            return this.resultTypes.AD;
+        }
+        
+        return this.resultTypes.ORGANIC;
+    }
+    
+    extractMetadata(container, result) {
+        // Extract additional metadata
+        result.metadata.hasSnippet = !!result.snippet;
+        result.metadata.linkDomain = this.extractDomain(result.url);
+        result.metadata.hasImage = !!container.querySelector('img');
+        result.metadata.hasRating = !!container.querySelector('.fG8Fp, .z3HNkc'); // Rating indicators
+        
+        // Extract dates if present
+        const dateElement = container.querySelector('[data-ved] time, .f, .slp');
+        if (dateElement) {
+            result.attributes.date = dateElement.textContent.trim();
+        }
+        
+        // Extract price information for shopping results
+        const priceElement = container.querySelector('.a8Pemb, .T14wmb');
+        if (priceElement) {
+            result.attributes.price = priceElement.textContent.trim();
+        }
+        
+        // Extract source/site information
+        const siteElement = container.querySelector('.TbwUpd, .NJjxre, .qzEoUe');
+        if (siteElement) {
+            result.attributes.site = siteElement.textContent.trim();
+        }
+    }
+    
+    calculateConfidence(result) {
+        let confidence = 0;
+        
+        // Base confidence for having required fields
+        if (result.title) confidence += 30;
+        if (result.url) confidence += 30;
+        if (result.snippet) confidence += 20;
+        
+        // Additional confidence factors
+        if (result.metadata.linkDomain !== 'unknown') confidence += 10;
+        if (result.type === this.resultTypes.ORGANIC) confidence += 10;
+        
+        return Math.min(confidence, 100);
+    }
+    
+    isValidResult(result, options = {}) {
+        // Validate if result meets criteria
+        if (!result.title && !result.url) return false;
+        
+        // Filter out ads if specified
+        if (options.excludeAds && result.type === this.resultTypes.AD) {
+            return false;
+        }
+        
+        // Filter by minimum confidence if specified
+        if (options.minConfidence && result.metadata.confidence < options.minConfidence) {
+            return false;
+        }
+        
+        return true;
+    }
+    
+    postProcessResults(results, options = {}) {
+        // Post-process results for consistency and quality
+        
+        // Remove duplicates based on URL
+        const uniqueResults = [];
+        const seenUrls = new Set();
+        
+        for (const result of results) {
+            if (result.url && !seenUrls.has(result.url)) {
+                seenUrls.add(result.url);
+                uniqueResults.push(result);
+            } else if (!result.url) {
+                // Keep results without URLs (like featured snippets)
+                uniqueResults.push(result);
+            }
+        }
+        
+        // Sort by position to ensure correct order
+        uniqueResults.sort((a, b) => a.position - b.position);
+        
+        // Renumber positions after deduplication
+        uniqueResults.forEach((result, index) => {
+            result.position = index + 1;
+        });
+        
+        return uniqueResults;
+    }
+    
+    isAdvertisement(container) {
+        // Enhanced advertisement detection with comprehensive indicators
+        const adIndicators = [
+            // Direct ad selectors
+            '.commercial-unit-desktop-top',
+            '.commercial-unit-desktop-rhs',
+            '.ads-ad',
+            '.pla-unit',
+            '.pla-hovercard-content-ellip',
+            '[data-text-ad]',
+            '.ad_cclk',
+            '.advs',
+            '.ads-visurl',
+            
+            // Shopping ad indicators
+            '.pla-unit-container',
+            '.sh-np__product-results',
+            '.commercial-unit-desktop-rhs',
+            
+            // Text indicators within content
+            'span:contains("Ad")',
+            'span:contains("Sponsored")',
+            'span:contains("Advertisement")',
+            
+            // Data attribute indicators
+            '[data-text-ad="1"]',
+            '[data-commercial-unit]'
+        ];
+        
+        // Check direct selectors
+        const hasAdSelector = adIndicators.some(selector => {
+            try {
+                return container.matches(selector) || container.querySelector(selector);
+            } catch (error) {
+                // Handle invalid selectors (like :contains which is not supported)
+                return false;
+            }
+        });
+        
+        if (hasAdSelector) return true;
+        
+        // Check for text-based ad indicators
+        const textContent = container.textContent.toLowerCase();
+        const adTextIndicators = ['sponsored', 'advertisement', 'ad·'];
+        
+        const hasAdText = adTextIndicators.some(indicator => 
+            textContent.includes(indicator)
+        );
+        
+        if (hasAdText) return true;
+        
+        // Check for ad-specific styling patterns
+        const computedStyle = window.getComputedStyle(container);
+        if (computedStyle.backgroundColor === 'rgb(252, 248, 227)' || // Common ad background
+            computedStyle.borderLeft === '3px solid rgb(251, 188, 4)') { // Ad border
+            return true;
+        }
+        
+        // Check parent containers for ad indicators
+        let parent = container.parentElement;
+        while (parent && parent !== document.body) {
+            if (parent.classList.contains('commercial-unit-desktop-top') ||
+                parent.classList.contains('ads-ad') ||
+                parent.dataset.textAd) {
+                return true;
+            }
+            parent = parent.parentElement;
+        }
+        
+        return false;
+    }
+    
+    verifySearchResultsPresent() {
+        // Enhanced page verification with multiple strategies
+        console.log('🔍 Verifying search results presence...');
+        
+        // Strategy 1: Check for result containers
+        const hasResultContainers = this.resultSelectors.resultContainers.some(selector => {
+            const elements = document.querySelectorAll(selector);
+            if (elements.length > 0) {
+                console.log(`✅ Found ${elements.length} results with selector: ${selector}`);
+                return true;
+            }
+            return false;
+        });
+        
+        if (hasResultContainers) return true;
+        
+        // Strategy 2: Check for any search-related content
+        const searchIndicators = [
+            this.resultSelectors.searchStats,    // Result stats
+            this.resultSelectors.searchInput,    // Search input
+            ...this.resultSelectors.featuredSnippets, // Featured content
+            ...this.resultSelectors.knowledgePanel    // Knowledge panels
+        ];
+        
+        const hasSearchContent = searchIndicators.some(selector => {
+            const element = document.querySelector(selector);
+            if (element) {
+                console.log(`✅ Found search content with selector: ${selector}`);
+                return true;
+            }
+            return false;
+        });
+        
+        if (hasSearchContent) return true;
+        
+        // Strategy 3: Check for "no results" or "did you mean" messages
+        const noResultsIndicators = this.resultSelectors.noResults + ', ' + 
+                                   this.resultSelectors.spellingSuggestion;
+        
+        const hasNoResultsMessage = document.querySelector(noResultsIndicators);
+        if (hasNoResultsMessage) {
+            console.log('✅ Found "no results" or spelling suggestion message');
+            return true;
+        }
+        
+        // Strategy 4: Check page title and URL
+        const isGoogleSearchPage = window.location.href.includes('google.com/search') &&
+                                 document.title.includes('Google Search');
+        
+        if (isGoogleSearchPage) {
+            console.log('✅ Confirmed Google search page via URL and title');
+            return true;
+        }
+        
+        console.log('❌ No search results or search page indicators found');
+        return false;
+    }
+    
+    getResultCount() {
+        // Enhanced result counting with multiple strategies
+        try {
+            // Primary count from main containers
+            let count = 0;
+            
+            for (const selector of this.resultSelectors.resultContainers) {
+                const containers = document.querySelectorAll(selector);
+                if (containers.length > 0) {
+                    count = containers.length;
+                    break;
+                }
+            }
+            
+            // If no primary containers, try organic results
+            if (count === 0) {
+                for (const selector of this.resultSelectors.organicResults) {
+                    const organicResults = document.querySelectorAll(selector);
+                    if (organicResults.length > 0) {
+                        count = organicResults.length;
+                        break;
+                    }
+                }
+            }
+            
+            // Parse result stats if available
+            const statsElement = document.querySelector(this.resultSelectors.searchStats);
+            if (statsElement && count === 0) {
+                const statsText = statsElement.textContent;
+                const match = statsText.match(/About ([\d,]+) results/);
+                if (match) {
+                    const totalResults = parseInt(match[1].replace(/,/g, ''));
+                    // Estimate visible results (typically 10 per page)
+                    count = Math.min(totalResults, 10);
+                }
+            }
+            
+            return count;
+        } catch (error) {
+            console.warn('Error counting results:', error);
+            return 0;
+        }
+    }
+    
+    // Enhanced utility method to get comprehensive page information
+    getPageAnalysis() {
+        return {
+            url: window.location.href,
+            title: document.title,
+            searchQuery: this.extractCurrentSearchQuery(),
+            resultCount: this.getResultCount(),
+            hasResults: this.verifySearchResultsPresent(),
+            resultTypes: this.analyzeResultTypes(),
+            pageLayout: this.analyzePageLayout(),
+            timestamp: new Date().toISOString()
+        };
+    }
+    
+    analyzeResultTypes() {
+        const types = {};
+        
+        // Count each type of result
+        Object.keys(this.resultTypes).forEach(typeKey => {
+            const type = this.resultTypes[typeKey];
+            types[type] = 0;
+        });
+        
+        // Analyze current results if available
+        if (this.currentResults.length > 0) {
+            this.currentResults.forEach(result => {
+                if (types.hasOwnProperty(result.type)) {
+                    types[result.type]++;
+                }
+            });
+        } else {
+            // Quick analysis without full scraping
+            if (document.querySelector(this.resultSelectors.featuredSnippets.join(', '))) {
+                types[this.resultTypes.FEATURED_SNIPPET]++;
+            }
+            if (document.querySelector(this.resultSelectors.knowledgePanel.join(', '))) {
+                types[this.resultTypes.KNOWLEDGE_PANEL]++;
+            }
+            if (document.querySelector(this.resultSelectors.shoppingResults.join(', '))) {
+                types[this.resultTypes.SHOPPING]++;
+            }
+            if (document.querySelector(this.resultSelectors.newsResults.join(', '))) {
+                types[this.resultTypes.NEWS]++;
+            }
+        }
+        
+        return types;
+    }
+    
+    analyzePageLayout() {
+        return {
+            hasRightSidebar: !!document.querySelector('#rhs'),
+            hasTopAds: !!document.querySelector('.commercial-unit-desktop-top'),
+            hasBottomAds: !!document.querySelector('.commercial-unit-desktop-bottom'),
+            hasKnowledgePanel: !!document.querySelector(this.resultSelectors.knowledgePanel.join(', ')),
+            hasFeaturedSnippet: !!document.querySelector(this.resultSelectors.featuredSnippets.join(', ')),
+            isMobileLayout: window.innerWidth < 768,
+            viewportWidth: window.innerWidth,
+            viewportHeight: window.innerHeight
+        };
+    }
+    
+    extractDomain(url) {
+        try {
+            const urlObj = new URL(url);
+            return urlObj.hostname.replace('www.', '');
+        } catch (error) {
+            // Handle relative URLs or malformed URLs
+            if (url && url.includes('/')) {
+                const parts = url.split('/');
+                const domain = parts.find(part => part.includes('.'));
+                return domain ? domain.replace('www.', '') : 'unknown';
+            }
+            return 'unknown';
+        }
+    }
+    
+    // Enhanced utility method to highlight found results with better styling
+    highlightResult(position, options = {}) {
+        const result = this.currentResults.find(r => r.position === position);
+        if (result && result.element) {
+            const highlightColor = options.color || '#ff6b6b';
+            const backgroundColor = options.backgroundColor || '#fff3cd';
+            
+            // Apply highlight styling
+            const originalStyle = result.element.style.cssText;
+            result.element.style.cssText += `
+                border: 3px solid ${highlightColor} !important;
+                background-color: ${backgroundColor} !important;
+                box-shadow: 0 0 10px rgba(255, 107, 107, 0.3) !important;
+                transition: all 0.3s ease !important;
+            `;
+            
+            // Scroll to element
+            result.element.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center',
+                inline: 'nearest'
+            });
+            
+            // Optional: Remove highlight after delay
+            if (options.timeout !== false) {
+                setTimeout(() => {
+                    result.element.style.cssText = originalStyle;
+                }, options.timeout || 5000);
+            }
+            
+            return true;
+        }
+        return false;
+    }
+    
+    // Method to simulate human-like behavior with enhanced randomization
+    async addRandomDelay(min = 500, max = 1500) {
+        const delay = Math.random() * (max - min) + min;
+        
+        // Add slight variation to make it more human-like
+        const variation = (Math.random() - 0.5) * 200;
+        const finalDelay = Math.max(min, delay + variation);
+        
+        return new Promise(resolve => setTimeout(resolve, finalDelay));
+    }
+}
+
+// Initialize the enhanced scraper when the script loads
+const scraper = new GoogleSERPScraper();
+
+// Make it globally available for debugging
+window.serpScraper = scraper;
+
+// Enhanced debugging helpers with more functionality
+window.debugScraper = {
+    // Basic scraping functions
+    scrapeNow: (options = {}) => {
+        console.log('🔍 Manual scrape initiated with options:', options);
+        return scraper.scrapeSearchResults(options);
+    },
+    
+    findKeyword: (keyword, options = {}) => {
+        console.log(`🎯 Searching for keyword: "${keyword}"`);
+        const results = scraper.scrapeSearchResults(options);
+        return scraper.findKeywordRanking(keyword, results, options);
+    },
+    
+    highlight: (position, options = {}) => {
+        return scraper.highlightResult(position, options);
+    },
+    
+    // Enhanced debugging functions
+    analyzePageNow: () => {
+        console.log('📊 Analyzing current page...');
+        return scraper.getPageAnalysis();
+    },
+    
+    testSelectors: () => {
+        console.log('🧪 Testing all selectors...');
+        const results = {};
+        
+        // Test container selectors
+        scraper.resultSelectors.resultContainers.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            results[selector] = elements.length;
+        });
+        
+        console.table(results);
+        return results;
+    },
+    
+    compareStrategies: () => {
+        console.log('⚖️ Comparing extraction strategies...');
+        const primary = scraper.getResultContainers();
+        const fallback = scraper.getFallbackResults();
+        
+        return {
+            primary: primary.length,
+            fallback: fallback.length,
+            recommendation: primary.length > 0 ? 'primary' : 'fallback'
+        };
+    },
+    
+    showResultTypes: () => {
+        console.log('📋 Analyzing result types...');
+        const types = scraper.analyzeResultTypes();
+        console.table(types);
+        return types;
+    },
+    
+    testKeywordMatching: (keyword, options = {}) => {
+        console.log(`🔍 Testing keyword matching for: "${keyword}"`);
+        const results = scraper.scrapeSearchResults(options);
+        
+        // Test different matching strategies
+        const exact = scraper.findKeywordRanking(keyword, results, { ...options, fuzzyMatching: false });
+        const fuzzy = scraper.findKeywordRanking(keyword, results, { ...options, fuzzyMatching: true });
+        
+        return {
+            keyword: keyword,
+            totalResults: results.length,
+            exactMatch: exact,
+            fuzzyMatch: fuzzy,
+            results: results.slice(0, 5) // Show first 5 for debugging
+        };
+    },
+    
+    // Performance testing
+    performanceTest: async (iterations = 5) => {
+        console.log(`⏱️ Running performance test with ${iterations} iterations...`);
+        const times = [];
+        
+        for (let i = 0; i < iterations; i++) {
+            const start = performance.now();
+            scraper.scrapeSearchResults();
+            const end = performance.now();
+            times.push(end - start);
+        }
+        
+        const avg = times.reduce((a, b) => a + b) / times.length;
+        console.log(`Average scraping time: ${avg.toFixed(2)}ms`);
+        
+        return {
+            times: times,
+            average: avg,
+            min: Math.min(...times),
+            max: Math.max(...times)
+        };
+    },
+    
+    // Cache management
+    clearCache: () => {
+        scraper.scrapingCache.clear();
+        console.log('🗑️ Cache cleared');
+    },
+    
+    showCache: () => {
+        console.log('💾 Current cache:');
+        console.table(Array.from(scraper.scrapingCache.entries()));
+        return scraper.scrapingCache;
+    }
+};
+// ============================================================================
+// ENHANCED KEYWORD MATCHING ALGORITHM (Task 7)
+// ============================================================================
+
+findKeywordRanking(keyword, results, options = {}) {
+    if (!keyword || !results.length) {
+        return { 
+            found: false, 
+            position: null,
+            searchedResults: 0,
+            matchType: 'none',
+            confidence: 0
+        };
+    }
+    
+    const matchingOptions = {
+        fuzzyMatching: options.fuzzyMatching !== false, // Default to true
+        caseSensitive: options.caseSensitive === true,  // Default to false
+        exactPhrase: options.exactPhrase === true,      // Default to false
+        minWordLength: options.minWordLength || 2,      // Minimum word length for fuzzy matching
+        fuzzyThreshold: options.fuzzyThreshold || 0.7,  // Fuzzy matching threshold
+        prioritizeTitle: options.prioritizeTitle !== false, // Default to true
+        includeSnippets: options.includeSnippets !== false, // Default to true
+        includeUrls: options.includeUrls === true,      // Default to false
+        ...options
+    };
+    
+    console.log(`🎯 Searching for keyword: "${keyword}" with options:`, matchingOptions);
+    
+    // Normalize the keyword based on options
+    const normalizedKeyword = this.normalizeText(keyword, matchingOptions);
+    const keywordWords = this.extractKeywordWords(normalizedKeyword, matchingOptions);
+    
+    console.log(`📝 Normalized keyword: "${normalizedKeyword}"`);
+    console.log(`🔤 Keyword words:`, keywordWords);
+    
+    // Phase 1: Exact phrase matching (highest priority)
+    if (matchingOptions.exactPhrase) {
+        const exactMatch = this.findExactPhraseMatch(normalizedKeyword, results, matchingOptions);
+        if (exactMatch.found) {
+            console.log('🎯 Found exact phrase match:', exactMatch);
+            return exactMatch;
+        }
+    }
+    
+    // Phase 2: Exact word matching in titles (high priority)
+    const titleMatch = this.findInTitles(keywordWords, normalizedKeyword, results, matchingOptions, 'exact');
+    if (titleMatch.found) {
+        console.log('📰 Found exact title match:', titleMatch);
+        return titleMatch;
+    }
+    
+    // Phase 3: Exact word matching in snippets (medium priority)
+    if (matchingOptions.includeSnippets) {
+        const snippetMatch = this.findInSnippets(keywordWords, normalizedKeyword, results, matchingOptions, 'exact');
+        if (snippetMatch.found) {
+            console.log('📄 Found exact snippet match:', snippetMatch);
+            return snippetMatch;
+        }
+    }
+    
+    // Phase 4: URL matching (for domain/brand searches)
+    if (matchingOptions.includeUrls) {
+        const urlMatch = this.findInUrls(keywordWords, normalizedKeyword, results, matchingOptions, 'exact');
+        if (urlMatch.found) {
+            console.log('🔗 Found URL match:', urlMatch);
+            return urlMatch;
+        }
+    }
+    
+    // Phase 5: Fuzzy matching (if enabled)
+    if (matchingOptions.fuzzyMatching) {
+        // Fuzzy match in titles first
+        const fuzzyTitleMatch = this.findInTitles(keywordWords, normalizedKeyword, results, matchingOptions, 'fuzzy');
+        if (fuzzyTitleMatch.found) {
+            console.log('🔍 Found fuzzy title match:', fuzzyTitleMatch);
+            return fuzzyTitleMatch;
+        }
+        
+        // Fuzzy match in snippets
+        if (matchingOptions.includeSnippets) {
+            const fuzzySnippetMatch = this.findInSnippets(keywordWords, normalizedKeyword, results, matchingOptions, 'fuzzy');
+            if (fuzzySnippetMatch.found) {
+                console.log('🔍 Found fuzzy snippet match:', fuzzySnippetMatch);
+                return fuzzySnippetMatch;
+            }
+        }
+    }
+    
+    console.log(`❌ No matches found for keyword: "${keyword}"`);
+    return { 
+        found: false, 
+        position: null,
+        searchedResults: results.length,
+        matchType: 'none',
+        confidence: 0,
+        keyword: keyword,
+        normalizedKeyword: normalizedKeyword,
+        options: matchingOptions
+    };
+}
+
+findExactPhraseMatch(normalizedKeyword, results, options) {
+    for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        
+        // Check title
+        const normalizedTitle = this.normalizeText(result.title, options);
+        if (this.containsExactPhrase(normalizedTitle, normalizedKeyword)) {
+            return this.createMatchResult(result, 'title', 'exact_phrase', 95);
+        }
+        
+        // Check snippet if enabled
+        if (options.includeSnippets && result.snippet) {
+            const normalizedSnippet = this.normalizeText(result.snippet, options);
+            if (this.containsExactPhrase(normalizedSnippet, normalizedKeyword)) {
+                return this.createMatchResult(result, 'snippet', 'exact_phrase', 90);
+            }
+        }
+    }
+    
+    return { found: false };
+}
+
+findInTitles(keywordWords, normalizedKeyword, results, options, matchType) {
+    for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        const normalizedTitle = this.normalizeText(result.title, options);
+        
+        let match;
+        if (matchType === 'exact') {
+            match = this.exactWordMatch(normalizedTitle, keywordWords, normalizedKeyword);
+        } else {
+            match = this.fuzzyWordMatch(normalizedTitle, keywordWords, options);
+        }
+        
+        if (match.isMatch) {
+            const confidence = matchType === 'exact' ? 85 : 75;
+            return this.createMatchResult(result, 'title', matchType, confidence, match);
+        }
+    }
+    
+    return { found: false };
+}
+
+findInSnippets(keywordWords, normalizedKeyword, results, options, matchType) {
+    for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        if (!result.snippet) continue;
+        
+        const normalizedSnippet = this.normalizeText(result.snippet, options);
+        
+        let match;
+        if (matchType === 'exact') {
+            match = this.exactWordMatch(normalizedSnippet, keywordWords, normalizedKeyword);
+        } else {
+            match = this.fuzzyWordMatch(normalizedSnippet, keywordWords, options);
+        }
+        
+        if (match.isMatch) {
+            const confidence = matchType === 'exact' ? 75 : 65;
+            return this.createMatchResult(result, 'snippet', matchType, confidence, match);
+        }
+    }
+    
+    return { found: false };
+}
+
+findInUrls(keywordWords, normalizedKeyword, results, options, matchType) {
+    for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        const normalizedUrl = this.normalizeText(result.url, options);
+        
+        let match;
+        if (matchType === 'exact') {
+            match = this.exactWordMatch(normalizedUrl, keywordWords, normalizedKeyword);
+        } else {
+            match = this.fuzzyWordMatch(normalizedUrl, keywordWords, options);
+        }
+        
+        if (match.isMatch) {
+            const confidence = matchType === 'exact' ? 70 : 60;
+            return this.createMatchResult(result, 'url', matchType, confidence, match);
+        }
+    }
+    
+    return { found: false };
+}
+
+// ============================================================================
+// TEXT NORMALIZATION AND PROCESSING (Task 7.3) - ENHANCED
+// ============================================================================
+
+normalizeText(text, options = {}) {
+    if (!text) return '';
+    
+    let normalized = text;
+    
+    // Phase 1: Basic cleaning
+    // Remove HTML tags if present
+    normalized = normalized.replace(/<[^>]*>/g, ' ');
+    
+    // Decode HTML entities
+    normalized = this.decodeHtmlEntities(normalized);
+    
+    // Handle case sensitivity
+    if (!options.caseSensitive) {
+        normalized = normalized.toLowerCase();
+    }
+    
+    // Phase 2: Character normalization
+    // Convert accented characters to base characters
+    normalized = this.normalizeAccentedChars(normalized);
+    
+    // Normalize different types of quotes and dashes
+    normalized = normalized.replace(/["""'']/g, '"');
+    normalized = normalized.replace(/[‒–—―]/g, '-');
+    
+    // Phase 3: Special character handling
+    if (options.preserveSpecialChars) {
+        // Keep some special characters that might be meaningful
+        normalized = normalized.replace(/[^\w\s\-\.\@\#\$\%\&\+]/g, ' ');
+    } else {
+        // Remove most special characters but preserve word boundaries
+        normalized = normalized.replace(/[^\w\s\-]/g, ' ');
+    }
+    
+    // Phase 4: Whitespace normalization
+    // Handle multiple spaces, tabs, newlines
+    normalized = normalized.replace(/\s+/g, ' ');
+    
+    // Trim whitespace
+    normalized = normalized.trim();
+    
+    // Phase 5: Additional processing options
+    if (options.removeStopWords) {
+        normalized = this.removeStopWords(normalized);
+    }
+    
+    if (options.stemming) {
+        normalized = this.applyStemming(normalized);
+    }
+    
+    return normalized;
+}
+
+    decodeHtmlEntities(text) {
+        const entityMap = {
+            '&amp;': '&',
+            '&lt;': '<',
+            '&gt;': '>',
+            '&quot;': '"',
+            '&#39;': "'",
+            '&nbsp;': ' ',
+            '&mdash;': '—',
+            '&ndash;': '–',
+            '&hellip;': '...'
+        };
+        
+        return text.replace(/&[a-zA-Z0-9#]+;/g, (entity) => {
+            return entityMap[entity] || entity;
+        });
+    }
+
+    normalizeAccentedChars(text) {
+        const accentMap = {
+            'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a', 'å': 'a',
+            'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
+            'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i',
+            'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o',
+            'ù': 'u', 'ú': 'u', 'û': 'u', 'ü': 'u',
+            'ý': 'y', 'ÿ': 'y',
+            'ñ': 'n', 'ç': 'c'
+        };
+        
+        return text.replace(/[àáâãäåèéêëìíîïòóôõöùúûüýÿñç]/g, (char) => {
+            return accentMap[char] || char;
+        });
+    }
+
+    removeStopWords(text) {
+        const words = text.split(' ');
+        const filtered = words.filter(word => !this.isStopWord(word));
+        return filtered.join(' ');
+    }
+
+    applyStemming(text) {
+        // Simple stemming - remove common suffixes
+        const words = text.split(' ');
+        const stemmed = words.map(word => {
+            if (word.length <= 3) return word;
+            
+            // Remove common suffixes
+            const suffixes = ['ing', 'ed', 'er', 'est', 'ly', 'tion', 'sion', 'ness', 'ment'];
+            for (const suffix of suffixes) {
+                if (word.endsWith(suffix)) {
+                    const stemmed = word.slice(0, -suffix.length);
+                    if (stemmed.length >= 3) {
+                        return stemmed;
+                    }
+                }
+            }
+            return word;
+        });
+        return stemmed.join(' ');
+    }
+
+extractKeywordWords(normalizedKeyword, options = {}) {
+    return normalizedKeyword
+        .split(' ')
+        .filter(word => word.length >= options.minWordLength)
+        .filter(word => !this.isStopWord(word));
+}
+
+isStopWord(word) {
+    // Common stop words that should be ignored in matching
+    const stopWords = [
+        'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from',
+        'has', 'he', 'in', 'is', 'it', 'its', 'of', 'on', 'that', 'the',
+        'to', 'was', 'will', 'with', 'you', 'your', 'have', 'had', 'this',
+        'these', 'they', 'were', 'been', 'their', 'said', 'each', 'which',
+        'she', 'do', 'how', 'if', 'we', 'when', 'where', 'who', 'would'
+    ];
+    
+    return stopWords.includes(word.toLowerCase());
+}
+
+// ============================================================================
+// EXACT MATCHING LOGIC (Task 7.1) - ENHANCED
+// ============================================================================
+
+containsExactPhrase(text, phrase) {
+    return text.includes(phrase);
+}
+
+exactWordMatch(text, keywordWords, fullKeyword) {
+    const textWords = text.split(' ');
+    
+    // Strategy 1: Check if all keyword words are present (order independent)
+    const presentWords = keywordWords.filter(keywordWord =>
+        textWords.some(textWord => textWord === keywordWord)
+    );
+    
+    // Strategy 2: Check for exact phrase match
+    const hasExactPhrase = this.containsExactPhrase(text, fullKeyword);
+    
+    // Strategy 3: Check for sequential word matching
+    const hasSequentialMatch = this.checkSequentialWordMatch(text, keywordWords);
+    
+    const matchRatio = presentWords.length / keywordWords.length;
+    
+    // Enhanced scoring based on different match types
+    let confidence = 0;
+    let matchType = 'partial';
+    
+    if (hasExactPhrase) {
+        confidence = 100;
+        matchType = 'exact_phrase';
+    } else if (hasSequentialMatch.found) {
+        confidence = 90;
+        matchType = 'sequential';
+    } else if (matchRatio === 1.0) {
+        confidence = 80;
+        matchType = 'all_words';
+    } else if (matchRatio >= 0.7) {
+        confidence = 60;
+        matchType = 'most_words';
+    } else {
+        confidence = matchRatio * 50;
+        matchType = 'partial';
+    }
+    
+    return {
+        isMatch: matchRatio >= 0.5, // At least half the words must be present
+        matchedWords: presentWords,
+        totalWords: keywordWords.length,
+        matchRatio: matchRatio,
+        matchType: matchType,
+        confidence: confidence,
+        hasExactPhrase: hasExactPhrase,
+        sequentialMatch: hasSequentialMatch
+    };
+}
+
+    checkSequentialWordMatch(text, keywordWords) {
+        if (keywordWords.length === 1) {
+            return { found: text.includes(keywordWords[0]), sequence: keywordWords };
+        }
+        
+        const textWords = text.split(' ');
+        
+        // Check if keyword words appear in sequence (with possible gaps)
+        for (let i = 0; i <= textWords.length - keywordWords.length; i++) {
+            let keywordIndex = 0;
+            let matchedSequence = [];
+            
+            for (let j = i; j < textWords.length && keywordIndex < keywordWords.length; j++) {
+                if (textWords[j] === keywordWords[keywordIndex]) {
+                    matchedSequence.push(textWords[j]);
+                    keywordIndex++;
+                }
+            }
+            
+            if (keywordIndex === keywordWords.length) {
+                return {
+                    found: true,
+                    sequence: matchedSequence,
+                    startIndex: i,
+                    gapCount: (j - i) - keywordWords.length
+                };
+            }
+        }
+        
+        return { found: false, sequence: [] };
+    }
+
+    // Enhanced exact matching with word boundaries
+    exactWordMatchWithBoundaries(text, keywordWords, fullKeyword) {
+        // Create regex patterns for word boundary matching
+        const wordBoundaryPatterns = keywordWords.map(word => 
+            new RegExp(`\\b${this.escapeRegex(word)}\\b`, 'i')
+        );
+        
+        const matchedWords = [];
+        const matchDetails = [];
+        
+        wordBoundaryPatterns.forEach((pattern, index) => {
+            const matches = text.match(pattern);
+            if (matches) {
+                matchedWords.push(keywordWords[index]);
+                matchDetails.push({
+                    word: keywordWords[index],
+                    matches: matches,
+                    positions: this.findWordPositions(text, keywordWords[index])
+                });
+            }
+        });
+        
+        const matchRatio = matchedWords.length / keywordWords.length;
+        
+        return {
+            isMatch: matchRatio >= 0.5,
+            matchedWords: matchedWords,
+            matchDetails: matchDetails,
+            totalWords: keywordWords.length,
+            matchRatio: matchRatio,
+            matchType: 'word_boundary',
+            confidence: matchRatio * 85
+        };
+    }
+
+    escapeRegex(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    findWordPositions(text, word) {
+        const positions = [];
+        const regex = new RegExp(`\\b${this.escapeRegex(word)}\\b`, 'gi');
+        let match;
+        
+        while ((match = regex.exec(text)) !== null) {
+            positions.push({
+                start: match.index,
+                end: match.index + match[0].length,
+                matched: match[0]
+            });
+        }
+        
+        return positions;
+    }
+
+// ============================================================================
+// FUZZY MATCHING LOGIC (Task 7.2)
+// ============================================================================
+
+fuzzyWordMatch(text, keywordWords, options = {}) {
+    const textWords = text.split(' ');
+    const threshold = options.fuzzyThreshold || 0.7;
+    
+    let matchedWords = [];
+    let partialMatches = [];
+    
+    keywordWords.forEach(keywordWord => {
+        // Check for exact word matches first
+        const exactMatch = textWords.find(textWord => textWord === keywordWord);
+        if (exactMatch) {
+            matchedWords.push({
+                keyword: keywordWord,
+                matched: exactMatch,
+                similarity: 1.0,
+                type: 'exact'
+            });
+            return;
+        }
+        
+        // Check for partial/fuzzy matches
+        const fuzzyMatch = this.findBestFuzzyMatch(keywordWord, textWords);
+        if (fuzzyMatch.similarity >= threshold) {
+            matchedWords.push({
+                keyword: keywordWord,
+                matched: fuzzyMatch.word,
+                similarity: fuzzyMatch.similarity,
+                type: 'fuzzy'
+            });
+        } else if (fuzzyMatch.similarity > 0.4) {
+            partialMatches.push(fuzzyMatch);
+        }
+    });
+    
+    const matchRatio = matchedWords.length / keywordWords.length;
+    const avgSimilarity = matchedWords.length > 0 
+        ? matchedWords.reduce((sum, match) => sum + match.similarity, 0) / matchedWords.length
+        : 0;
+    
+    return {
+        isMatch: matchRatio >= threshold,
+        matchedWords: matchedWords,
+        partialMatches: partialMatches,
+        totalWords: keywordWords.length,
+        matchRatio: matchRatio,
+        avgSimilarity: avgSimilarity,
+        matchType: 'fuzzy'
+    };
+}
+
+findBestFuzzyMatch(keyword, textWords) {
+    let bestMatch = { word: '', similarity: 0 };
+    
+    textWords.forEach(textWord => {
+        const similarity = this.calculateStringSimilarity(keyword, textWord);
+        if (similarity > bestMatch.similarity) {
+            bestMatch = { word: textWord, similarity: similarity };
+        }
+    });
+    
+    return bestMatch;
+}
+
+calculateStringSimilarity(str1, str2) {
+    // Use Levenshtein distance to calculate similarity
+    const longer = str1.length > str2.length ? str1 : str2;
+    const shorter = str1.length > str2.length ? str2 : str1;
+    
+    if (longer.length === 0) return 1.0;
+    
+    const distance = this.levenshteinDistance(longer, shorter);
+    return (longer.length - distance) / longer.length;
+}
+
+levenshteinDistance(str1, str2) {
+    const matrix = [];
+    
+    for (let i = 0; i <= str2.length; i++) {
+        matrix[i] = [i];
+    }
+    
+    for (let j = 0; j <= str1.length; j++) {
+        matrix[0][j] = j;
+    }
+    
+    for (let i = 1; i <= str2.length; i++) {
+        for (let j = 1; j <= str1.length; j++) {
+            if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1] + 1, // substitution
+                    matrix[i][j - 1] + 1,     // insertion
+                    matrix[i - 1][j] + 1      // deletion
+                );
+            }
+        }
+    }
+    
+    return matrix[str2.length][str1.length];
+}
+
+// ============================================================================
+// RELEVANCE SCORING (Task 7.4)
+// ============================================================================
+
+createMatchResult(result, matchLocation, matchType, baseConfidence, matchDetails = {}) {
+    let confidence = baseConfidence;
+    
+    // Adjust confidence based on match details
+    if (matchDetails.avgSimilarity) {
+        confidence = confidence * matchDetails.avgSimilarity;
+    }
+    
+    // Boost confidence for title matches
+    if (matchLocation === 'title') {
+        confidence += 5;
+    }
+    
+    // Boost confidence for featured snippets or special result types
+    if (result.type === this.resultTypes.FEATURED_SNIPPET) {
+        confidence += 10;
+    }
+    
+    // Ensure confidence is within bounds
+    confidence = Math.min(100, Math.max(0, confidence));
+    
+    return {
+        found: true,
+        position: result.position,
+        matchedIn: matchLocation,
+        matchTypfidence: Math.round(confidence),
+   - ENHANCED      result: result,
+        matchDetails: matchDetails,
+        fuzzy: matchType.includes('fuzzy'),
+        // Additional scoring details
+        scoring: {
+            baseConfidence: baseConfidence,
+            locationBonus: matchLocation === 'title' ? 5 : 0,
+            typeBonus: result.type === this.resultTypes.FEATURED_SNIPPET;
+    let totalSimilarityScore = 0 ? 10 : 0,
+            finalConfidence: Math.ro Strategyu1: nd(confidence)
+        }
+    };
+}
+
+// Enhanced utility method for advanced keyword analysis
+analyzeKeywordMatch(keyword, result, options = {}) {
+    const analysis = {
+        keyword: keyword,
+        result: {
+            position: result.position,
+            title: result.title,
+            snippet: result.sni,ppet,    
+          method: 'exact_match'
+              url: result.url,
+           totalSimilaritySco t += 1.0;
+            reype: result.type
+        },
+        matchnd-alike matches
+        const phoneticMatch = this.findPhoneticMatch(keywordWord, textWords);
+        if (phoneticMatch.similarity >= threshold) {
+            matchedWords.push({
+                keyword: keywordWord,
+                matched: phoneticMatch.word,
+                similarity: phoneticMatch.similarity,
+                type: 'phonetic',
+                method: 'phonetic_match'
+            });
+            totalSimilarityScore += phoneticMatch.similarity;
+            return;
+        }
+        
+        // Strategy 4: Check for Levenshtein distance fuor phonetic/so/ Strategy 3: Check arity;
+                return;
+            }
+        }
+        
+        rityScore += simimilotalSingMatch,
+                    similarity: similarity,
+                    type: 'substring',
+                    method: 'substring_match'
+                });
+                tched: substush({
+                    keyword: keywordWord,
+                    m{
+                matchedWords.eshold)rd.length / substringMatch.length,
+                substringMatch.length / keywordWord.length
+            );
+            if (similarity >= th (substringMatch) {
+            const similarity = Math.max(
+                keywordW       );
+        ieywordWord.includes(textWord)
+ludes(keywordWord) || xtWords.find(textWord => 
+            textWord.ineck for substring matches
+        const substringMatch = tStrategy 2: es: {}
+    };
+    
+    const normalizedKeyword = this.normalizeText(keyword, options);
+    const keywordWords = this.extractKeywordWords(normalizedKeyword, options);
+    
+    // Analyze title matches
+    if (result.title) {
+        const titleText = this.normalizeText(result.title, options);
+        analysi',
+                method: 'levenshteins.matches.title = {
+            exact;
+            totalSimilarityScore += fuzzyMatch.similarity: this.exactWordMatch(titleText, keywordWords, normalizedKeyword),{
+                ...
+        ,
+                keyword: keywordWord,
+                method: 'levenshtein_partial'
+            }    fuzzy: this.fuzzyWordMatch(titleText, keywordWords, options)
+        };
+    }
+    
+    // Analyze snippet matches
+    if (result.snippet) {
+        totalSicilorinySsor  / keyworsnippetlength // Incluxe tnmat h=d wordh
+        : 0;
+    
+    // Enhanced satchingndecision with oultiple frcmors
+    aonst isMatclzeethix.calctlateFuzzyMatchDecision(
+      res,cMa, 
+        partia 
+     , 
+        thresholdRatio, 
+        avgSes   ult.soptions
+nipe), options);
+        analysis.matches.snippet = {
+            exact: this.exactWordMatch(snippetText, keywordWords, normalizedKeyword),
+            fuzzy: this.fuzzyWordMatch(snippetText, keywordWords, options)
+        };
+    }
+    
+    // Analyze URL matches
+    if (result.url) {
+        const urlTSimilarity,
+        totalSimilarityScore: totalext =
+        matchStrategies: this.getMatchStrategySummary(matchedWords)'chType: 'fuzztyScore,
+        ma t   h};
+}
