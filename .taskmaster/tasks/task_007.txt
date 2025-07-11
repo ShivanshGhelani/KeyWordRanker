@@ -1,0 +1,11 @@
+# Task ID: 7
+# Title: Build keyword matching algorithm
+# Status: pending
+# Dependencies: 6
+# Priority: high
+# Description: Implement logic to find keyword occurrences in search results
+# Details:
+Create algorithm to match the input keyword against search result titles, snippets, and visible text. Implement fuzzy matching and ranking logic to determine keyword position.
+
+# Test Strategy:
+Test with various keywords and verify accurate rank detection for different match scenarios

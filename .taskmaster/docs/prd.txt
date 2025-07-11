@@ -1,0 +1,75 @@
+# 📄 Product Requirements Document (PRD)
+
+## 🧩 Project Title:
+**Chrome Extension – Keyword Rank Finder for Google Search**
+
+---
+
+## 📄 Description:
+Create a Chrome Extension that allows SEO managers to input any **keyword** (e.g., "best boutique in Ahmedabad", "nautanky") and find its **ranking position** in **Google Search**. The tool should simulate a search query and scrape the SERP to detect in which position the keyword appears.
+
+> **Note**: No need to check for specific domain or website — the focus is on **keyword visibility only**.
+
+---
+
+## 🎯 Goal / Outcome:
+Allow users to identify where a keyword appears in Google Search Results (e.g., 5th, 12th, 21st, or "Not found in Top 100").
+
+---
+
+## 👤 User Story:
+> As an **SEO Manager**, I want to input a keyword into a Chrome extension and get its ranking in Google search, so I can track keyword performance and visibility.
+
+---
+
+## ✅ Acceptance Criteria:
+
+- [ ] Extension accepts **any keyword input**
+- [ ] On click of **"Check Rank"**, Google search is simulated or opened
+- [ ] Content script scrapes the search results (top 100 organic links)
+- [ ] Extension returns keyword **rank position** (e.g., #3)
+- [ ] If keyword not found: show `"Not found in top 100 results"`
+- [ ] (Optional) Store keyword rank check **history locally**
+
+---
+
+## 🧠 Technical Details:
+
+- Chrome Extension using **Manifest V3**
+- Use `popup.html`, `popup.js` for extension UI
+- Use `content.js` script to parse Google Search Results Page (DOM scraping)
+- Logic to identify where the keyword first appears (based on title/snippet match)
+- Use delay (`setTimeout`) to avoid Google bot detection
+- Check against `h3`, `div`, and other visible text in result snippets
+- Ensure results are sorted in rank order (1 to 100)
+
+---
+
+## 🧪 Testing Plan:
+
+- ✅ Test various keyword types (e.g., brand, local business, long-tail keywords)
+- ✅ Validate correct rank is returned (e.g., rank #1, #17, #39)
+- ✅ Handle case where keyword is not found (return message)
+- ✅ Test UI responsiveness and keyword input handling
+- ✅ Validate against invalid or empty input
+
+---
+
+## 📁 Files to Deliver:
+
+- `manifest.json`  
+- `popup.html`  
+- `popup.js`  
+- `popup.css`  
+- `content.js`  
+- `README.md` with install/use instructions  
+- Final `.zip` file for Chrome installation
+
+---
+
+## 🚀 Optional Enhancements (Future Scope):
+
+- Multi-keyword batch checking  
+- Country/language selector for SERP localization  
+- Export ranking result to CSV  
+- Daily/weekly tracking with visualization  

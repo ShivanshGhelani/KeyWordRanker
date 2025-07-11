@@ -1,0 +1,11 @@
+# Task ID: 14
+# Title: Package extension for distribution
+# Status: pending
+# Dependencies: 13
+# Priority: medium
+# Description: Create distributable Chrome Extension package
+# Details:
+Package the extension into a .zip file ready for Chrome Web Store or manual installation. Ensure all files are included and properly configured.
+
+# Test Strategy:
+Test extension installation from packaged .zip file on different Chrome installations
