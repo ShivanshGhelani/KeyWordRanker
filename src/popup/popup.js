@@ -5,12 +5,45 @@
 
 class KeywordRankFinder {
     constructor() {
-        // Core elements
+        // Initialize properties first
+        this.searchStartTime = null;
+        this.currentKeyword = null;
+        this.currentResult = null;
+        
+        // Bind methods to preserve context
+        this.handleRankCheck = this.handleRankCheck.bind(this);
+        this.validateInput = this.validateInput.bind(this);
+        this.updateCharacterCounter = this.updateCharacterCounter.bind(this);
+        
+        // Initialize DOM elements with error checking
+        this.initializeElements();
+        this.attachEventListeners();
+        this.loadSettings();
+        this.loadStats();
+        this.setupCharacterCounter();
+        this.loadHistory();
+        this.checkCurrentPage();
+    }
+    
+    initializeElements() {
+        // Core elements with null checks
         this.form = document.getElementById('rankForm');
         this.keywordInput = document.getElementById('keyword');
         this.checkBtn = document.getElementById('checkRankBtn');
         this.spinner = document.getElementById('spinner');
         this.btnText = document.querySelector('.btn-text');
+        
+        // Validate critical elements
+        if (!this.keywordInput) {
+            console.error('Critical element missing: keyword input');
+            this.showError('Extension initialization failed. Please reload the popup.');
+            return;
+        }
+        
+        if (!this.checkBtn) {
+            console.error('Critical element missing: check button');
+            return;
+        }
         
         // Character counter
         this.charCount = document.getElementById('charCount');
@@ -18,6 +51,7 @@ class KeywordRankFinder {
         // Options
         this.openInNewTab = document.getElementById('openInNewTab');
         this.saveHistory = document.getElementById('saveHistory');
+        this.showPositionNumbers = document.getElementById('showPositionNumbers');
         
         // Results and stats
         this.resultsSection = document.getElementById('results');
@@ -51,21 +85,11 @@ class KeywordRankFinder {
         this.resultsLimit = document.getElementById('resultsLimit');
         this.enableNotifications = document.getElementById('enableNotifications');
         
-        // State
-        this.currentKeyword = '';
-        this.currentResult = null;
-        this.searchStartTime = null;
-        
-        this.init();
-    }
-    
-    init() {
-        this.attachEventListeners();
-        this.loadSettings();
-        this.loadStats();
-        this.loadHistory();
-        this.setupCharacterCounter();
-        this.checkCurrentPage();
+        // Bot Avoidance Testing
+        this.testBotAvoidance = document.getElementById('testBotAvoidance');
+        this.validateBotAvoidance = document.getElementById('validateBotAvoidance');
+        this.testResults = document.getElementById('testResults');
+        this.validationResults = document.getElementById('validationResults');
     }
     
     attachEventListeners() {
@@ -104,6 +128,13 @@ class KeywordRankFinder {
         this.googleDomain?.addEventListener('change', () => this.saveSettings());
         this.resultsLimit?.addEventListener('change', () => this.saveSettings());
         this.enableNotifications?.addEventListener('change', () => this.saveSettings());
+        
+        // Position Numbers
+        this.showPositionNumbers?.addEventListener('change', () => this.togglePositionNumbers());
+        
+        // Bot Avoidance Testing
+        this.testBotAvoidance?.addEventListener('click', () => this.runBotAvoidanceTest());
+        this.validateBotAvoidance?.addEventListener('click', () => this.runBotAvoidanceValidation());
     }
     
     setupCharacterCounter() {
@@ -194,7 +225,11 @@ class KeywordRankFinder {
     }
     
     updateCharacterCounter() {
-        const length = this.keywordInput.value.length;
+        if (!this.keywordInput || !this.charCount) {
+            return;
+        }
+        
+        const length = this.keywordInput.value?.length || 0;
         this.charCount.textContent = length;
         
         if (length > 80) {
@@ -207,7 +242,14 @@ class KeywordRankFinder {
     }
     
     async handleRankCheck() {
-        const keyword = this.keywordInput.value.trim();
+        // Add safety check for keywordInput
+        if (!this.keywordInput) {
+            console.error('Keyword input element not found');
+            this.showError('Extension initialization error. Please reload the popup.', true);
+            return;
+        }
+        
+        const keyword = this.keywordInput.value?.trim() || '';
         this.currentKeyword = keyword;
         
         if (!this.validateKeyword(keyword)) {
@@ -226,7 +268,7 @@ class KeywordRankFinder {
             this.currentResult = result;
             this.displayResults(result, keyword);
             
-            if (this.saveHistory.checked) {
+            if (this.saveHistory?.checked) {
                 this.saveSearchToHistory(keyword, result);
             }
             
@@ -260,7 +302,11 @@ class KeywordRankFinder {
     }
     
     validateInput() {
-        const keyword = this.keywordInput.value.trim();
+        if (!this.keywordInput || !this.checkBtn) {
+            return;
+        }
+        
+        const keyword = this.keywordInput.value?.trim() || '';
         const isValid = keyword.length >= 2 && keyword.length <= 100;
         
         this.checkBtn.disabled = !isValid;
@@ -296,7 +342,7 @@ class KeywordRankFinder {
                 keyword: keyword,
                 currentSearchQuery: currentSearchQuery,
                 options: {
-                    maxResults: parseInt(this.resultsLimit.value) || 100,
+                    maxResults: parseInt(this.resultsLimit?.value) || 100,
                     fuzzyMatching: true,
                     highlightResults: false
                 }
@@ -388,7 +434,7 @@ class KeywordRankFinder {
     }
     
     buildAdvancedSearchParams(keyword) {
-        const domain = this.googleDomain.value || 'google.com';
+        const domain = this.googleDomain?.value || 'google.com';
         const settings = this.getSearchSettings();
         
         // Build sophisticated search parameters
@@ -408,7 +454,7 @@ class KeywordRankFinder {
         params.set('gl', regionSettings.gl);
         
         // Add result count parameter
-        const numResults = Math.min(parseInt(this.resultsLimit.value) || 100, 100);
+        const numResults = Math.min(parseInt(this.resultsLimit?.value) || 100, 100);
         params.set('num', numResults.toString());
         
         // Add source parameter to indicate organic search
@@ -456,8 +502,8 @@ class KeywordRankFinder {
     getSearchSettings() {
         // Get current search settings from UI
         return {
-            domain: this.googleDomain.value || 'google.com',
-            resultsLimit: parseInt(this.resultsLimit.value) || 100,
+            domain: this.googleDomain?.value || 'google.com',
+            resultsLimit: parseInt(this.resultsLimit?.value) || 100,
             enableNotifications: this.enableNotifications?.checked || false,
             openInNewTab: this.openInNewTab?.checked || false
         };
@@ -656,7 +702,7 @@ class KeywordRankFinder {
         
         const text = this.currentResult.found 
             ? `Keyword: "${this.currentKeyword}" - Rank: #${this.currentResult.rank}`
-            : `Keyword: "${this.currentKeyword}" - Not found in top ${this.resultsLimit.value || 100} results`;
+            : `Keyword: "${this.currentKeyword}" - Not found in top ${this.resultsLimit?.value || 100} results`;
             
         navigator.clipboard.writeText(text).then(() => {
             // Show temporary success message
@@ -671,10 +717,10 @@ class KeywordRankFinder {
     openInGoogle() {
         if (!this.currentKeyword) return;
         
-        const domain = this.googleDomain.value || 'google.com';
+        const domain = this.googleDomain?.value || 'google.com';
         const url = `https://www.${domain}/search?q=${encodeURIComponent(this.currentKeyword)}`;
         
-        if (this.openInNewTab.checked) {
+        if (this.openInNewTab?.checked) {
             chrome.tabs.create({ url });
         } else {
             chrome.tabs.update({ url });
@@ -686,22 +732,34 @@ class KeywordRankFinder {
     // History Management
     async saveSearchToHistory(keyword, result) {
         try {
-            const data = await chrome.storage.local.get(['searchHistory']);
-            const history = data.searchHistory || [];
+            // Use enhanced storage format compatible with content script
+            const data = await chrome.storage.local.get(['google_keyword_rank_history']);
+            const history = data.google_keyword_rank_history || [];
             
             const searchEntry = {
+                id: 'hist_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
                 keyword: keyword,
-                rank: result.found ? result.rank : null,
-                found: result.found,
-                timestamp: new Date().toISOString(),
-                matchType: result.matchType
+                timestamp: Date.now(),
+                searchDate: new Date().toISOString(),
+                results: {
+                    found: result.found,
+                    position: result.found ? result.rank : null,
+                    matchType: result.matchType || 'unknown',
+                    confidence: result.confidence || 'medium',
+                    totalResults: result.totalResults || 0
+                },
+                metadata: {
+                    url: result.url || window.location.href,
+                    userAgent: navigator.userAgent.substring(0, 100),
+                    searchEngine: 'Google'
+                }
             };
             
             // Add to beginning and limit to 50 entries
             history.unshift(searchEntry);
             const limitedHistory = history.slice(0, 50);
             
-            await chrome.storage.local.set({ searchHistory: limitedHistory });
+            await chrome.storage.local.set({ google_keyword_rank_history: limitedHistory });
             this.loadHistory();
         } catch (error) {
             console.warn('Failed to save search to history:', error);
@@ -710,8 +768,8 @@ class KeywordRankFinder {
     
     async loadHistory() {
         try {
-            const data = await chrome.storage.local.get(['searchHistory']);
-            const history = data.searchHistory || [];
+            const data = await chrome.storage.local.get(['google_keyword_rank_history']);
+            const history = data.google_keyword_rank_history || [];
             
             if (history.length === 0) {
                 this.historyList.innerHTML = '<div class="text-center" style="color: #9ca3af; padding: 20px;">No search history yet</div>';
@@ -723,9 +781,12 @@ class KeywordRankFinder {
                     <div>
                         <div class="history-keyword">${entry.keyword}</div>
                         <div class="history-date">${new Date(entry.timestamp).toLocaleDateString()}</div>
+                        <div class="history-details" style="font-size: 11px; color: #6b7280;">
+                            ${entry.results.matchType || 'unknown'} match • ${entry.results.confidence || 'medium'} confidence
+                        </div>
                     </div>
-                    <div class="history-rank ${entry.found ? 'text-success' : 'text-warning'}">
-                        ${entry.found ? `#${entry.rank}` : 'Not found'}
+                    <div class="history-rank ${entry.results.found ? 'text-success' : 'text-warning'}">
+                        ${entry.results.found ? '#' + entry.results.position : 'Not found'}
                     </div>
                 </div>
             `).join('');
@@ -747,7 +808,7 @@ class KeywordRankFinder {
     
     async clearSearchHistory() {
         try {
-            await chrome.storage.local.set({ searchHistory: [] });
+            await chrome.storage.local.set({ google_keyword_rank_history: [] });
             this.loadHistory();
         } catch (error) {
             console.warn('Failed to clear search history:', error);
@@ -767,11 +828,12 @@ class KeywordRankFinder {
             const data = await chrome.storage.local.get(['extensionSettings']);
             const settings = data.extensionSettings || {};
             
-            this.googleDomain.value = settings.googleDomain || 'google.com';
-            this.resultsLimit.value = settings.resultsLimit || '100';
-            this.enableNotifications.checked = settings.enableNotifications !== false;
-            this.openInNewTab.checked = settings.openInNewTab || false;
-            this.saveHistory.checked = settings.saveHistory !== false;
+            if (this.googleDomain) this.googleDomain.value = settings.googleDomain || 'google.com';
+            if (this.resultsLimit) this.resultsLimit.value = settings.resultsLimit || '100';
+            if (this.enableNotifications) this.enableNotifications.checked = settings.enableNotifications !== false;
+            if (this.openInNewTab) this.openInNewTab.checked = settings.openInNewTab || false;
+            if (this.saveHistory) this.saveHistory.checked = settings.saveHistory !== false;
+            if (this.showPositionNumbers) this.showPositionNumbers.checked = settings.showPositionNumbers || false;
         } catch (error) {
             console.warn('Failed to load settings:', error);
         }
@@ -780,11 +842,12 @@ class KeywordRankFinder {
     async saveSettings() {
         try {
             const settings = {
-                googleDomain: this.googleDomain.value,
-                resultsLimit: this.resultsLimit.value,
-                enableNotifications: this.enableNotifications.checked,
-                openInNewTab: this.openInNewTab.checked,
-                saveHistory: this.saveHistory.checked
+                googleDomain: this.googleDomain?.value || 'google.com',
+                resultsLimit: this.resultsLimit?.value || '100',
+                enableNotifications: this.enableNotifications?.checked !== false,
+                openInNewTab: this.openInNewTab?.checked || false,
+                saveHistory: this.saveHistory?.checked !== false,
+                showPositionNumbers: this.showPositionNumbers?.checked || false
             };
             
             await chrome.storage.local.set({ extensionSettings: settings });
@@ -868,6 +931,172 @@ class KeywordRankFinder {
             }
             
             throw error;
+        }
+    }
+    
+    // =========================================================================
+    // BOT AVOIDANCE TESTING METHODS
+    // =========================================================================
+    
+    async runBotAvoidanceTest() {
+        this.testBotAvoidance.disabled = true;
+        this.testBotAvoidance.textContent = 'Running Tests...';
+        this.testResults.classList.remove('hidden', 'success', 'warning', 'error');
+        this.testResults.textContent = 'Initializing bot avoidance tests...';
+        
+        try {
+            const response = await this.sendMessageToContentScript({
+                action: 'testBotAvoidance'
+            });
+            
+            this.displayTestResults(response);
+            
+        } catch (error) {
+            this.testResults.className = 'test-results error';
+            this.testResults.textContent = `Test failed: ${error.message}`;
+        } finally {
+            this.testBotAvoidance.disabled = false;
+            this.testBotAvoidance.textContent = 'Run Bot Avoidance Test';
+        }
+    }
+    
+    async runBotAvoidanceValidation() {
+        this.validateBotAvoidance.disabled = true;
+        this.validateBotAvoidance.textContent = 'Validating...';
+        this.validationResults.classList.remove('hidden', 'success', 'warning', 'error');
+        this.validationResults.textContent = 'Running validation against known patterns...';
+        
+        try {
+            const response = await this.sendMessageToContentScript({
+                action: 'validateBotAvoidance'
+            });
+            
+            this.displayValidationResults(response);
+            
+        } catch (error) {
+            this.validationResults.className = 'test-results error';
+            this.validationResults.textContent = `Validation failed: ${error.message}`;
+        } finally {
+            this.validateBotAvoidance.disabled = false;
+            this.validateBotAvoidance.textContent = 'Validate Detection Patterns';
+        }
+    }
+    
+    displayTestResults(results) {
+        this.testResults.classList.remove('hidden');
+        
+        if (results.overall.passed) {
+            this.testResults.className = 'test-results success';
+        } else if (results.overall.score >= 0.5) {
+            this.testResults.className = 'test-results warning';
+        } else {
+            this.testResults.className = 'test-results error';
+        }
+        
+        const scorePercent = Math.round(results.overall.score * 100);
+        
+        let output = `🧪 Bot Avoidance Test Results\n`;
+        output += `Overall Score: ${scorePercent}% ${results.overall.passed ? '✅' : '❌'}\n\n`;
+        
+        // Delay testing
+        if (results.delayTesting) {
+            const delayScore = Math.round(results.delayTesting.score * 100);
+            output += `⏰ Delay Testing: ${delayScore}% ${results.delayTesting.passed ? '✅' : '❌'}\n`;
+            output += `  Average: ${Math.round(results.delayTesting.details.averageDelay)}ms\n`;
+            output += `  Range: ${results.delayTesting.details.minDelay}-${results.delayTesting.details.maxDelay}ms\n\n`;
+        }
+        
+        // Pattern testing
+        if (results.patternTesting) {
+            const patternScore = Math.round(results.patternTesting.score * 100);
+            output += `🎭 Pattern Testing: ${patternScore}% ${results.patternTesting.passed ? '✅' : '❌'}\n`;
+            output += `  Patterns tested: ${results.patternTesting.details.patternTests.length}\n\n`;
+        }
+        
+        // Detection testing
+        if (results.detectionTesting) {
+            const detectionScore = Math.round(results.detectionTesting.score * 100);
+            output += `🚨 Detection Testing: ${detectionScore}% ${results.detectionTesting.passed ? '✅' : '❌'}\n\n`;
+        }
+        
+        // Stealth testing
+        if (results.stealthTesting) {
+            const stealthScore = Math.round(results.stealthTesting.score * 100);
+            output += `🥷 Stealth Testing: ${stealthScore}% ${results.stealthTesting.passed ? '✅' : '❌'}\n`;
+        }
+        
+        this.testResults.textContent = output;
+    }
+    
+    displayValidationResults(results) {
+        this.validationResults.classList.remove('hidden');
+        
+        if (results.overallSafety) {
+            this.validationResults.className = 'test-results success';
+        } else {
+            this.validationResults.className = 'test-results warning';
+        }
+        
+        let output = `🔍 Bot Detection Validation\n`;
+        output += `Overall Safety: ${results.overallSafety ? 'SAFE ✅' : 'NEEDS IMPROVEMENT ⚠️'}\n\n`;
+        
+        // Timing patterns
+        if (results.timingPatterns) {
+            output += `⏰ Timing Patterns: ${results.timingPatterns.safe ? 'SAFE ✅' : 'RISKY ❌'}\n`;
+            if (results.timingPatterns.details) {
+                output += `  Avg Delay: ${Math.round(results.timingPatterns.details.averageDelay)}ms\n`;
+                output += `  Variance: ${Math.round(results.timingPatterns.details.variance)}\n`;
+            }
+            output += '\n';
+        }
+        
+        // Request frequency
+        if (results.requestFrequency) {
+            output += `📊 Request Frequency: ${results.requestFrequency.safe ? 'SAFE ✅' : 'TOO HIGH ❌'}\n`;
+            if (results.requestFrequency.details) {
+                output += `  Rate: ${results.requestFrequency.details.requestsPerMinute.toFixed(1)}/min\n`;
+            }
+            output += '\n';
+        }
+        
+        // Behavior consistency
+        if (results.behaviorConsistency) {
+            output += `🎭 Behavior: ${results.behaviorConsistency.safe ? 'CONSISTENT ✅' : 'SUSPICIOUS ❌'}\n`;
+        }
+        
+        this.validationResults.textContent = output;
+    }
+
+    // =========================================================================
+    // POSITION NUMBERS METHODS
+    // =========================================================================
+    
+    async togglePositionNumbers() {
+        try {
+            const action = this.showPositionNumbers?.checked ? 'addPositionNumbers' : 'removePositionNumbers';
+            
+            const response = await this.sendMessageToContentScript({
+                action: action
+            });
+            
+            if (response.success) {
+                console.log(`✅ ${response.message}`);
+                // Save the setting
+                this.saveSettings();
+            } else {
+                console.error('❌ Failed to toggle position numbers:', response.error);
+                // Revert checkbox if failed
+                if (this.showPositionNumbers) {
+                    this.showPositionNumbers.checked = !this.showPositionNumbers.checked;
+                }
+            }
+            
+        } catch (error) {
+            console.error('❌ Error toggling position numbers:', error);
+            // Revert checkbox if failed
+            if (this.showPositionNumbers) {
+                this.showPositionNumbers.checked = !this.showPositionNumbers.checked;
+            }
         }
     }
 }

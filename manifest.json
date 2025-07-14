@@ -35,7 +35,16 @@
     "https://google.com/*",
     "https://www.google.co.uk/*",
     "https://www.google.ca/*",
-    "https://www.google.au/*"
+    "https://www.google.au/*",
+    "https://www.google.es/*",
+    "https://www.google.fr/*",
+    "https://www.google.de/*",
+    "https://www.google.co.jp/*",
+    "https://www.google.com.hk/*",
+    "https://www.google.com.br/*",
+    "https://www.google.it/*",
+    "https://www.google.ru/*",
+    "https://www.google.co.kr/*"
   ],
   
   "content_scripts": [
@@ -45,9 +54,26 @@
         "https://google.com/search*",
         "https://www.google.co.uk/search*",
         "https://www.google.ca/search*",
-        "https://www.google.au/search*"
+        "https://www.google.au/search*",
+        "https://www.google.es/search*",
+        "https://www.google.fr/search*",
+        "https://www.google.de/search*",
+        "https://www.google.co.jp/search*",
+        "https://www.google.com.hk/search*",
+        "https://www.google.com.br/search*",
+        "https://www.google.it/search*",
+        "https://www.google.ru/search*",
+        "https://www.google.co.kr/search*"
       ],
-      "js": ["src/scripts/content.js"],
+      "js": [
+        "src/scripts/modules/serp-scraper.js",
+        "src/scripts/modules/keyword-matcher.js",
+        "src/scripts/modules/bot-avoidance.js",
+        "src/scripts/modules/error-handler.js",
+        "src/scripts/modules/search-history.js",
+        "src/scripts/modules/language-support.js",
+        "src/scripts/content.js"
+      ],
       "css": ["src/styles/content.css"],
       "run_at": "document_end",
       "all_frames": false

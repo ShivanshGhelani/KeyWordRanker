@@ -9,7 +9,7 @@
 <body>
     <div class="container">
         <header class="header">
-            <h1 class="title">🔍 Keyword Rank Finder</h1>
+            <h1 class="title">Keyword Rank Finder</h1>
             <p class="subtitle">Find your keyword ranking on Google</p>
         </header>
         
@@ -50,6 +50,13 @@
                             <input type="checkbox" id="saveHistory" class="option-checkbox" checked>
                             <span class="checkmark"></span>
                             Save search history
+                        </label>
+                    </div>
+                    <div class="option-item">
+                        <label class="option-label">
+                            <input type="checkbox" id="showPositionNumbers" class="option-checkbox">
+                            <span class="checkmark"></span>
+                            Show position numbers on search results
                         </label>
                     </div>
                 </div>
@@ -158,6 +165,19 @@
                         <input type="checkbox" id="enableNotifications" class="setting-checkbox">
                         <span>Enable notifications</span>
                     </label>
+                </div>
+                
+                <!-- Bot Avoidance Testing Section -->
+                <div class="setting-section">
+                    <h4>🥷 Bot Avoidance Testing</h4>
+                    <div class="setting-item">
+                        <button id="testBotAvoidance" class="test-btn">Run Bot Avoidance Test</button>
+                        <div id="testResults" class="test-results hidden"></div>
+                    </div>
+                    <div class="setting-item">
+                        <button id="validateBotAvoidance" class="test-btn">Validate Detection Patterns</button>
+                        <div id="validationResults" class="test-results hidden"></div>
+                    </div>
                 </div>
             </div>
         </div>
