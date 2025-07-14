@@ -5,25 +5,25 @@
 
 // Extension installation and startup
 chrome.runtime.onInstalled.addListener((details) => {
-    console.log('Keyword Rank Finder extension installed:', details);
+
     
     if (details.reason === 'install') {
         // First time installation
-        console.log('Extension installed for the first time');
+
     } else if (details.reason === 'update') {
         // Extension updated
-        console.log('Extension updated to version:', chrome.runtime.getManifest().version);
+
     }
 });
 
 // Handle extension startup
 chrome.runtime.onStartup.addListener(() => {
-    console.log('Keyword Rank Finder extension started');
+
 });
 
 // Handle messages from popup or content scripts
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    console.log('Background received message:', request);
+
     
     switch (request.action) {
         case 'openGoogleSearch':
@@ -35,7 +35,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             return true;
             
         case 'contentScriptReady':
-            console.log('Content script ready on:', request.url);
+
             // Store ready status if needed
             sendResponse({ success: true });
             return true;
@@ -92,11 +92,11 @@ async function handleGetTabInfo(sendResponse) {
 // Handle tab updates (when user navigates to different pages)
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete' && tab.url) {
-        console.log('Tab updated:', tab.url);
+
         
         // Check if it's a Google search page
         if (tab.url.includes('google.com/search')) {
-            console.log('User navigated to Google search page');
+
             // Could send message to popup or store this info
         }
     }
@@ -104,7 +104,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 // Handle storage changes (optional: for debugging)
 chrome.storage.onChanged.addListener((changes, namespace) => {
-    console.log('Storage changed:', changes, 'in namespace:', namespace);
+
 });
 
 // Error handling for the service worker

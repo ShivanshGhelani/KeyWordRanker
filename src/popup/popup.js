@@ -35,13 +35,12 @@ class KeywordRankFinder {
         
         // Validate critical elements
         if (!this.keywordInput) {
-            console.error('Critical element missing: keyword input');
             this.showError('Extension initialization failed. Please reload the popup.');
             return;
         }
         
         if (!this.checkBtn) {
-            console.error('Critical element missing: check button');
+            this.showError('Extension initialization failed. Please reload the popup.');
             return;
         }
         
@@ -52,6 +51,7 @@ class KeywordRankFinder {
         this.openInNewTab = document.getElementById('openInNewTab');
         this.saveHistory = document.getElementById('saveHistory');
         this.showPositionNumbers = document.getElementById('showPositionNumbers');
+        this.autoEnhanceResults = document.getElementById('autoEnhanceResults');
         
         // Results and stats
         this.resultsSection = document.getElementById('results');
@@ -131,6 +131,9 @@ class KeywordRankFinder {
         
         // Position Numbers
         this.showPositionNumbers?.addEventListener('change', () => this.togglePositionNumbers());
+        
+        // Auto-enhance Results
+        this.autoEnhanceResults?.addEventListener('change', () => this.toggleAutoEnhanceResults());
         
         // Bot Avoidance Testing
         this.testBotAvoidance?.addEventListener('click', () => this.runBotAvoidanceTest());
@@ -397,7 +400,7 @@ class KeywordRankFinder {
                     return true;
                 }
             } catch (error) {
-                console.log(`Content script not ready, attempt ${attempt}/${maxAttempts}`);
+
                 
                 if (attempt === maxAttempts) {
                     // Try to inject the content script manually
@@ -453,8 +456,8 @@ class KeywordRankFinder {
         params.set('hl', regionSettings.hl);
         params.set('gl', regionSettings.gl);
         
-        // Add result count parameter
-        const numResults = Math.min(parseInt(this.resultsLimit?.value) || 100, 100);
+        // Add result count parameter - Allow up to 1000 results for comprehensive ranking analysis
+        const numResults = Math.min(parseInt(this.resultsLimit?.value) || 1000, 1000);
         params.set('num', numResults.toString());
         
         // Add source parameter to indicate organic search
@@ -540,7 +543,7 @@ class KeywordRankFinder {
             await chrome.tabs.update(tabId, { url: searchParams.fullUrl });
             
             // Log navigation for debugging
-            console.log('Navigated to:', searchParams.fullUrl);
+
             
         } catch (error) {
             throw new Error(`Failed to navigate to Google search: ${error.message}`);
@@ -582,19 +585,19 @@ class KeywordRankFinder {
                     });
                     
                     if (verificationResponse && verificationResponse.ready) {
-                        console.log(`Page loaded successfully after ${attempts} attempts`);
+
                         return true;
                     }
                 }
             } catch (error) {
                 // Content script not ready yet, continue waiting
                 if (attempts === 1) {
-                    console.log('Waiting for content script to load...');
+
                 }
                 
                 // If we're getting close to timeout, try a page refresh
                 if (attempts === maxAttempts - 1 && Date.now() - startTime > maxWait * 0.8) {
-                    console.log('Attempting page refresh due to loading issues...');
+
                     try {
                         await chrome.tabs.reload(tabId);
                         await this.addRandomDelay(2000, 3000); // Wait for refresh
@@ -829,11 +832,12 @@ class KeywordRankFinder {
             const settings = data.extensionSettings || {};
             
             if (this.googleDomain) this.googleDomain.value = settings.googleDomain || 'google.com';
-            if (this.resultsLimit) this.resultsLimit.value = settings.resultsLimit || '100';
+            if (this.resultsLimit) this.resultsLimit.value = settings.resultsLimit || '1000';
             if (this.enableNotifications) this.enableNotifications.checked = settings.enableNotifications !== false;
             if (this.openInNewTab) this.openInNewTab.checked = settings.openInNewTab || false;
             if (this.saveHistory) this.saveHistory.checked = settings.saveHistory !== false;
-            if (this.showPositionNumbers) this.showPositionNumbers.checked = settings.showPositionNumbers || false;
+            if (this.showPositionNumbers) this.showPositionNumbers.checked = settings.showPositionNumbers !== false;
+            if (this.autoEnhanceResults) this.autoEnhanceResults.checked = settings.autoEnhanceResults !== false;
         } catch (error) {
             console.warn('Failed to load settings:', error);
         }
@@ -843,11 +847,12 @@ class KeywordRankFinder {
         try {
             const settings = {
                 googleDomain: this.googleDomain?.value || 'google.com',
-                resultsLimit: this.resultsLimit?.value || '100',
+                resultsLimit: this.resultsLimit?.value || '1000',
                 enableNotifications: this.enableNotifications?.checked !== false,
                 openInNewTab: this.openInNewTab?.checked || false,
                 saveHistory: this.saveHistory?.checked !== false,
-                showPositionNumbers: this.showPositionNumbers?.checked || false
+                showPositionNumbers: this.showPositionNumbers?.checked !== false,
+                autoEnhanceResults: this.autoEnhanceResults?.checked !== false
             };
             
             await chrome.storage.local.set({ extensionSettings: settings });
@@ -1080,7 +1085,7 @@ class KeywordRankFinder {
             });
             
             if (response.success) {
-                console.log(`✅ ${response.message}`);
+
                 // Save the setting
                 this.saveSettings();
             } else {
@@ -1097,6 +1102,71 @@ class KeywordRankFinder {
             if (this.showPositionNumbers) {
                 this.showPositionNumbers.checked = !this.showPositionNumbers.checked;
             }
+        }
+    }
+
+    // =========================================================================
+    // AUTO-ENHANCE RESULTS METHODS
+    // =========================================================================
+    
+    async toggleAutoEnhanceResults() {
+        try {
+            const isEnabled = this.autoEnhanceResults?.checked || false;
+
+            
+            // Save setting
+            await this.saveSettings();
+            
+            // Apply to current page if it's a Google search page
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (tab?.url?.includes('google.com/search')) {
+                const response = await chrome.tabs.sendMessage(tab.id, {
+                    action: 'autoEnhanceResults',
+                    enabled: isEnabled
+                });
+                
+                if (response?.success) {
+
+                    
+                    // Show feedback
+                    this.showMessage(
+                        isEnabled 
+                            ? '✅ Auto-enhanced results enabled - Google will show 1000 results per page'
+                            : '❌ Auto-enhanced results disabled',
+                        'success'
+                    );
+                } else {
+
+                }
+            }
+            
+        } catch (error) {
+            console.error('Error toggling auto-enhance results:', error);
+            this.showError('Failed to toggle auto-enhance results');
+        }
+    }
+    
+    showMessage(text, type = 'info', duration = 3000) {
+        // Remove existing messages
+        const existingMessages = document.querySelectorAll('.message');
+        existingMessages.forEach(msg => msg.remove());
+        
+        // Create new message
+        const message = document.createElement('div');
+        message.className = `message ${type}`;
+        message.textContent = text;
+        
+        // Insert after form
+        const form = document.getElementById('rankForm');
+        form.parentNode.insertBefore(message, form.nextSibling);
+        
+        // Auto-remove after duration
+        if (duration > 0) {
+            setTimeout(() => {
+                if (message.parentNode) {
+                    message.remove();
+                }
+            }, duration);
         }
     }
 }

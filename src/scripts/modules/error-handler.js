@@ -47,7 +47,7 @@ class ErrorHandler {
     }
 
     init() {
-        console.log('🚨 Initializing comprehensive error handling system');
+
         
         // Set up global error catching
         this.setupGlobalErrorHandlers();
@@ -61,7 +61,7 @@ class ErrorHandler {
         // Initialize error monitoring
         this.setupErrorMonitoring();
         
-        console.log('✅ Error handling system initialized');
+
     }
 
     setupGlobalErrorHandlers() {
@@ -261,7 +261,7 @@ class ErrorHandler {
     async attemptRecovery(errorDetails) {
         const { category, operation } = errorDetails;
         
-        console.log(`🔄 Attempting recovery for ${category} error in ${operation}`);
+
 
         try {
             // Get the appropriate fallback strategy
@@ -277,7 +277,7 @@ class ErrorHandler {
                 errorDetails
             );
 
-            console.log(`✅ Recovery successful for ${category} error`);
+
             return {
                 success: true,
                 result: recoveryResult,
@@ -311,7 +311,7 @@ class ErrorHandler {
             try {
                 if (attempt > 0) {
                     const delay = this.calculateRetryDelay(attempt);
-                    console.log(`⏰ Retry attempt ${attempt}/${maxRetries} after ${delay}ms delay`);
+
                     await new Promise(resolve => setTimeout(resolve, delay));
                 }
 
@@ -339,7 +339,7 @@ class ErrorHandler {
 
     // Specific error handlers
     async handleDOMError(errorDetails) {
-        console.log('🔧 Handling DOM error with fallback selectors');
+
         
         const { context } = errorDetails;
         
@@ -372,7 +372,7 @@ class ErrorHandler {
     }
 
     async useGenericDOMApproach(context) {
-        console.log('🔍 Using generic DOM approach');
+
         
         // Try to find results using generic patterns
         const genericSelectors = [
@@ -395,31 +395,31 @@ class ErrorHandler {
     }
 
     async handleNetworkError(errorDetails) {
-        console.log('🌐 Handling network error');
+
         return { success: false, error: 'Network error - retry suggested' };
     }
 
     async handleParsingError(errorDetails) {
-        console.log('📝 Handling parsing error');
+
         return { success: false, error: 'Parsing error - using safe defaults' };
     }
 
     async handleValidationError(errorDetails) {
-        console.log('✅ Handling validation error');
+
         return { success: false, error: 'Validation error - input sanitized' };
     }
 
     async handleTimeoutError(errorDetails) {
-        console.log('⏰ Handling timeout error');
+
         return { success: false, error: 'Operation timed out - retry with extended timeout' };
     }
 
     async handleBotDetectionError(errorDetails) {
-        console.log('🤖 Handling bot detection error');
+
         
         // Extended cooldown
         const cooldownTime = 60000 + (Math.random() * 120000); // 1-3 minutes
-        console.log(`🛑 Bot detection cooldown: ${cooldownTime/1000}s`);
+
         await new Promise(resolve => setTimeout(resolve, cooldownTime));
         
         return {
@@ -430,7 +430,7 @@ class ErrorHandler {
     }
 
     async handleUnknownError(errorDetails) {
-        console.log('❓ Handling unknown error');
+
         return {
             success: false,
             error: 'Unknown error occurred',
@@ -504,7 +504,7 @@ class ErrorHandler {
         const breakerTime = this.getCircuitBreakerTime(errorCategory);
         await new Promise(resolve => setTimeout(resolve, breakerTime));
         
-        console.log(`🔌 Circuit breaker deactivated for ${errorCategory}`);
+
         
         return {
             success: false,

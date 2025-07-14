@@ -54,9 +54,16 @@
                     </div>
                     <div class="option-item">
                         <label class="option-label">
-                            <input type="checkbox" id="showPositionNumbers" class="option-checkbox">
+                            <input type="checkbox" id="showPositionNumbers" class="option-checkbox" checked>
                             <span class="checkmark"></span>
                             Show position numbers on search results
+                        </label>
+                    </div>
+                    <div class="option-item">
+                        <label class="option-label">
+                            <input type="checkbox" id="autoEnhanceResults" class="option-checkbox" checked>
+                            <span class="checkmark"></span>
+                            Auto-enhance Google results (show 1000 results per page)
                         </label>
                     </div>
                 </div>
@@ -156,7 +163,8 @@
                         <span>Search Results Limit:</span>
                         <select id="resultsLimit" class="setting-select">
                             <option value="50">Top 50 Results</option>
-                            <option value="100" selected>Top 100 Results</option>
+                            <option value="100">Top 100 Results</option>
+                            <option value="1000" selected>Top 1000 Results (Comprehensive)</option>
                         </select>
                     </label>
                 </div>

@@ -47,11 +47,11 @@ class BotAvoidance {
     }
 
     init() {
-        console.log('🥷 Initializing bot avoidance system');
+
         this.setupRequestMonitoring();
         this.setupBehaviorRandomization();
         this.setupSuspiciousActivityDetection();
-        console.log('✅ Bot avoidance system initialized');
+
     }
 
     initializeUserAgents() {
@@ -111,11 +111,11 @@ class BotAvoidance {
         const humanizedDelay = this.getHumanizationDelay(requestType);
         const totalDelay = delay + humanizedDelay;
 
-        console.log(`⏰ Applying human-like delay: ${totalDelay}ms (${requestType})`);
+
 
         // Check if we need forced cooldown
         if (this.forcedCooldown > 0) {
-            console.log(`🛑 Forced cooldown active: ${this.forcedCooldown}ms`);
+
             await new Promise(resolve => setTimeout(resolve, this.forcedCooldown));
             this.forcedCooldown = 0;
         }
@@ -255,7 +255,7 @@ class BotAvoidance {
     }
 
     adjustBehaviorForSuspicion() {
-        console.log('🔧 Adjusting behavior to reduce suspicion');
+
         
         // Increase delays
         this.behaviorPatterns.humanDelayRanges.reading = [2000, 6000];
@@ -281,7 +281,7 @@ class BotAvoidance {
 
     async applyCooldown() {
         const cooldownTime = this.getRandomDelay(60000, 120000); // 1-2 minutes
-        console.log(`🛑 Applying cooldown: ${cooldownTime/1000}s`);
+
         
         await this.simulateHumanCooldownBehavior(cooldownTime);
     }
@@ -305,12 +305,12 @@ class BotAvoidance {
         for (let i = 0; i < scrolls; i++) {
             await new Promise(resolve => setTimeout(resolve, 2000));
             // In a real implementation, this would trigger scroll events
-            console.log('📜 Simulating scroll...');
+
         }
     }
 
     async simulateResultReading(totalTime) {
-        console.log(`📖 Simulating result reading for ${totalTime/1000}s`);
+
         await new Promise(resolve => setTimeout(resolve, totalTime));
     }
 
@@ -351,7 +351,7 @@ class BotAvoidance {
      * Apply stealth mode for high-risk scenarios
      */
     async enableStealthMode() {
-        console.log('🥷 Enabling stealth mode for maximum bot avoidance');
+
         
         this.stealthMode = {
             enabled: true,
@@ -378,17 +378,17 @@ class BotAvoidance {
     }
 
     async simulateMouseMovement() {
-        console.log('🖱️ Simulating mouse movement');
+
         await new Promise(resolve => setTimeout(resolve, this.getRandomDelay(200, 800)));
     }
 
     async simulatePageInteraction() {
-        console.log('🤝 Simulating page interaction');
+
         await new Promise(resolve => setTimeout(resolve, this.getRandomDelay(500, 1500)));
     }
 
     async simulateReadingPause() {
-        console.log('📖 Simulating reading pause');
+
         const readingTime = this.getRandomDelay(3000, 8000);
         await new Promise(resolve => setTimeout(resolve, readingTime));
     }
@@ -439,7 +439,7 @@ class BotAvoidance {
      * Test bot avoidance effectiveness
      */
     async runBotAvoidanceTests() {
-        console.log('🧪 Running comprehensive bot avoidance tests...');
+
         
         const testResults = {
             delayTesting: await this.testDelayEffectiveness(),
@@ -454,12 +454,12 @@ class BotAvoidance {
         testResults.overall.score = scores.reduce((a, b) => a + b, 0) / scores.length;
         testResults.overall.passed = testResults.overall.score >= 0.8; // 80% pass threshold
 
-        console.log('🧪 Bot avoidance test results:', testResults);
+
         return testResults;
     }
 
     async testDelayEffectiveness() {
-        console.log('⏰ Testing delay effectiveness...');
+
         
         const testDelays = [];
         const testCount = 10;
@@ -501,7 +501,7 @@ class BotAvoidance {
     }
 
     async testBehaviorPatterns() {
-        console.log('🎭 Testing behavior patterns...');
+
         
         const originalPattern = this.currentBehavior.selectedPattern;
         const patternTests = [];
@@ -555,7 +555,7 @@ class BotAvoidance {
     }
 
     async testSuspiciousActivityDetection() {
-        console.log('🚨 Testing suspicious activity detection...');
+
         
         // Simulate suspicious patterns
         const originalHistory = [...this.requestHistory];
@@ -594,7 +594,7 @@ class BotAvoidance {
     }
 
     async testStealthMode() {
-        console.log('🥷 Testing stealth mode...');
+
         
         const wasStealthEnabled = this.stealthMode.enabled;
         
@@ -644,7 +644,7 @@ class BotAvoidance {
      * Validate bot avoidance against Google's known detection patterns
      */
     validateAgainstKnownPatterns() {
-        console.log('🔍 Validating against known Google bot detection patterns...');
+
         
         const validation = {
             timingPatterns: this.validateTimingPatterns(),

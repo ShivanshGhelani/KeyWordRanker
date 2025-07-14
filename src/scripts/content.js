@@ -22,15 +22,26 @@ class GoogleSERPScraper {
     }
 
     init() {
-        console.log('🔥 Enhanced Keyword Rank Finder: Content script loaded on:', window.location.href);
         this.setupMessageListener();
         this.initializeModules();
+        
+        // Auto-enhance Google search results if on search page
+        if (this.isGoogleSearchPage()) {
+            // Wait a bit for page to load, then enhance
+            setTimeout(() => {
+                this.autoEnhanceGoogleResults();
+            }, 1000);
+            
+            // Force show position numbers immediately as a backup
+            setTimeout(() => {
+                this.addPositionNumbersToPage();
+            }, 2000);
+        }
     }
 
     async initializeModules() {
         try {
             // All modules are already initialized in their constructors
-            console.log('✅ All modules initialized successfully');
         } catch (error) {
             console.error('❌ Error initializing modules:', error);
         }
@@ -47,8 +58,6 @@ class GoogleSERPScraper {
 
     async handleMessage(request, sender, sendResponse) {
         try {
-            console.log('📨 Received message:', request.action);
-
             // Extract language context from request
             const languageContext = {
                 language: request.language || this.languageSupport.currentLanguage,
@@ -151,6 +160,21 @@ class GoogleSERPScraper {
                     sendResponse({ success: true, enabled: toggled, message: `Position numbers ${toggled ? 'enabled' : 'disabled'}` });
                     break;
 
+                case 'autoEnhanceResults':
+                    const enhanceResult = await this.autoEnhanceGoogleResults();
+                    sendResponse({ success: enhanceResult, message: 'Auto-enhancement toggled' });
+                    break;
+
+                case 'enhanceSearchURL':
+                    await this.enhanceSearchURL();
+                    sendResponse({ success: true, message: 'Search URL enhanced' });
+                    break;
+
+                case 'enhanceCurrentPageImmediately':
+                    const immediateResult = this.enhanceCurrentPageImmediately();
+                    sendResponse({ success: immediateResult, message: 'Page enhanced immediately' });
+                    break;
+
                 default:
                     sendResponse({ success: false, error: 'Unknown action: ' + request.action });
             }
@@ -245,8 +269,6 @@ class GoogleSERPScraper {
     async findKeywordRankWithLanguageSupport(keyword, languageContext, options = {}) {
         return await this.errorHandler.safeExecute(
             async () => {
-                console.log(`🌍 Finding keyword rank with language support: ${languageContext.language}`);
-                
                 // Apply language-specific bot avoidance
                 const languageConfig = this.languageSupport.getLanguageConfig(languageContext.language);
                 await this.botAvoidance.applyHumanLikeDelay('search');
@@ -313,8 +335,6 @@ class GoogleSERPScraper {
     async scrapeGoogleResultsWithLanguageSupport(languageContext) {
         return await this.errorHandler.safeExecute(
             async () => {
-                console.log(`🌍 Scraping results with language support: ${languageContext.language}`);
-                
                 // Apply language-specific delays and behavior
                 await this.botAvoidance.applyHumanLikeDelay('scrape');
 
@@ -344,8 +364,6 @@ class GoogleSERPScraper {
 
                     // Update current results cache
                     this.currentResults = scrapeResult.results;
-
-                    console.log(`✅ Scraped ${scrapeResult.results.length} results for ${languageContext.language}`);
                 }
 
                 return scrapeResult;
@@ -626,10 +644,6 @@ class GoogleSERPScraper {
      */
     async scrapeCurrentPageResults(keyword, currentSearchQuery, options = {}) {
         try {
-            console.log(`� Starting scrapeCurrentPageResults for keyword: "${keyword}"`);
-            console.log(`🔍 Current search query: "${currentSearchQuery}"`);
-            console.log(`⚙️  Options:`, options);
-            
             // Apply bot avoidance delay
             await this.botAvoidance.applyHumanLikeDelay('scrape');
 
@@ -639,7 +653,6 @@ class GoogleSERPScraper {
                 country: this.languageSupport.currentCountry,
                 autoDetect: true
             };
-            console.log(`🌍 Language context:`, languageContext);
 
             // Enhanced scraping options
             const scrapingOptions = {
@@ -650,25 +663,18 @@ class GoogleSERPScraper {
                 fuzzyMatching: options.fuzzyMatching !== false,
                 highlightResults: options.highlightResults === true
             };
-            console.log(`📋 Scraping options:`, scrapingOptions);
 
             // Scrape current page results
-            console.log(`🔍 About to scrape Google results...`);
             const scrapeResult = await this.serpScraper.scrapeGoogleResults({
                 ...scrapingOptions,
                 addPositionNumbers: true // Always add position numbers when scraping
             });
-            console.log(`📊 Scrape result:`, scrapeResult);
             
             if (!scrapeResult.success) {
                 throw new Error(scrapeResult.error || 'Failed to scrape search results');
             }
 
-            console.log(`✅ Successfully scraped ${scrapeResult.results.length} results`);
-            console.log(`📋 Sample results (first 3):`, scrapeResult.results.slice(0, 3));
-
             // Find keyword ranking in results
-            console.log(`🎯 About to find keyword ranking for: "${keyword}"`);
             const rankingResult = this.keywordMatcher.findKeywordRanking(
                 keyword, 
                 scrapeResult.results, 
@@ -678,11 +684,9 @@ class GoogleSERPScraper {
                     language: languageContext.language
                 }
             );
-            console.log(`🎯 Ranking result:`, rankingResult);
 
             // Save search to history if successful
             if (rankingResult.found) {
-                console.log(`💾 Saving to search history...`);
                 await this.searchHistory.saveSearchResult(
                     keyword,
                     scrapeResult.results,
@@ -694,8 +698,6 @@ class GoogleSERPScraper {
                         fuzzy: rankingResult.fuzzy || false
                     }
                 );
-            } else {
-                console.log(`❌ No ranking found - not saving to history`);
             }
 
             return {
@@ -734,7 +736,6 @@ class GoogleSERPScraper {
      */
     addPositionNumbersToPage() {
         try {
-            console.log('🔢 Adding position numbers to current page...');
             const containers = this.serpScraper.findResultContainers();
             this.serpScraper.addPositionNumbersToResults(containers);
             return true;
@@ -749,7 +750,6 @@ class GoogleSERPScraper {
      */
     removePositionNumbersFromPage() {
         try {
-            console.log('🗑️ Removing position numbers from current page...');
             this.serpScraper.removePositionNumbers();
             return true;
         } catch (error) {
@@ -773,6 +773,452 @@ class GoogleSERPScraper {
             }
         } catch (error) {
             console.error('❌ Error toggling position numbers:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Auto-enhance Google search results by modifying URL and page behavior
+     */
+    async autoEnhanceGoogleResults() {
+        try {
+            // Check if we're on Google search results page
+            if (!this.isGoogleSearchPage()) {
+                return false;
+            }
+
+            // Get current settings
+            const settings = await this.getExtensionSettings();
+            if (!settings.autoEnhanceResults) {
+                return false;
+            }
+
+            // Enhance URL to show more results
+            await this.enhanceSearchURL();
+            
+            // Enhance page DOM
+            this.enhanceSearchResultsDOM();
+            
+            // Auto-add position numbers by default when extension is active
+            setTimeout(() => {
+                this.addPositionNumbersToPage();
+            }, 1500); // Wait a bit for page to stabilize after enhancement
+            
+            return true;
+            
+        } catch (error) {
+            console.error('❌ Error auto-enhancing Google results:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Modify current search URL to show more results
+     */
+    async enhanceSearchURL() {
+        const currentUrl = new URL(window.location.href);
+        const params = currentUrl.searchParams;
+        
+        // Check if we need to modify the URL
+        const currentNum = params.get('num') || '10';
+        const targetNum = '1000'; // Show 1000 results per page for comprehensive ranking
+        
+        if (currentNum !== targetNum) {
+            // Update URL parameters
+            params.set('num', targetNum);
+            
+            // Update URL without page refresh using history API
+            const newUrl = currentUrl.toString();
+            window.history.replaceState({}, '', newUrl);
+            
+            // If the page hasn't loaded with 1000 results, we need to reload
+            const resultElements = document.querySelectorAll(this.getOrganicResultSelectors());
+            if (resultElements.length < 50) { // If we have less than 50 results, reload to get more
+                window.location.href = newUrl;
+                return;
+            }
+        }
+    }
+
+    /**
+     * Enhance the search results DOM for better UX
+     */
+    enhanceSearchResultsDOM() {
+        try {
+            // Add enhancement indicator
+            this.addEnhancementIndicator();
+            
+            // Improve navigation for large result sets
+            this.enhanceResultsNavigation();
+            
+        } catch (error) {
+            console.error('❌ Error enhancing search results DOM:', error);
+        }
+    }
+
+    /**
+     * Add visual indicator that results are enhanced
+     */
+    addEnhancementIndicator() {
+        // Remove existing indicator
+        const existingIndicator = document.querySelector('.rank-finder-enhancement-indicator');
+        if (existingIndicator) {
+            existingIndicator.remove();
+        }
+
+        // Create new indicator
+        const indicator = document.createElement('div');
+        indicator.className = 'rank-finder-enhancement-indicator';
+        indicator.style.cssText = `
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #2563eb;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            z-index: 10000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            animation: fadeInOut 4s ease-in-out;
+        `;
+        indicator.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <span>🔍</span>
+                <span>Enhanced Results (1000 per page)</span>
+            </div>
+        `;
+
+        // Add fade animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeInOut {
+                0% { opacity: 0; transform: translateY(-10px); }
+                15% { opacity: 1; transform: translateY(0); }
+                85% { opacity: 1; transform: translateY(0); }
+                100% { opacity: 0; transform: translateY(-10px); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        document.body.appendChild(indicator);
+
+        // Remove after animation
+        setTimeout(() => {
+            if (indicator.parentNode) {
+                indicator.remove();
+            }
+        }, 4000);
+    }
+
+    /**
+     * Enhance navigation for large result sets
+     */
+    enhanceResultsNavigation() {
+        // Add "Jump to" navigation for large result sets
+        const organicResults = this.getOrganicResults();
+        const resultCount = organicResults.length;
+        
+        if (resultCount > 50) {
+            this.addJumpToNavigation(resultCount);
+        }
+    }
+
+    /**
+     * Add jump-to navigation for large result sets
+     */
+    addJumpToNavigation(resultCount) {
+        // Remove existing navigation
+        const existingNav = document.querySelector('.rank-finder-jump-nav');
+        if (existingNav) {
+            existingNav.remove();
+        }
+
+        // Create jump navigation
+        const jumpNav = document.createElement('div');
+        jumpNav.className = 'rank-finder-jump-nav';
+        jumpNav.style.cssText = `
+            position: fixed;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            z-index: 9999;
+            max-height: 300px;
+            overflow-y: auto;
+        `;
+
+        const title = document.createElement('div');
+        title.textContent = 'Jump to Position';
+        title.style.cssText = `
+            font-weight: 600;
+            font-size: 12px;
+            color: #374151;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #f3f4f6;
+            padding-bottom: 6px;
+        `;
+        jumpNav.appendChild(title);
+
+        // Add jump buttons for every 10 results
+        for (let i = 1; i <= resultCount; i += 10) {
+            const endRange = Math.min(i + 9, resultCount);
+            const button = document.createElement('button');
+            button.textContent = `${i}-${endRange}`;
+            button.style.cssText = `
+                display: block;
+                width: 100%;
+                padding: 4px 8px;
+                margin: 2px 0;
+                border: 1px solid #e5e7eb;
+                border-radius: 4px;
+                background: white;
+                color: #374151;
+                font-size: 11px;
+                cursor: pointer;
+                transition: all 0.15s ease;
+            `;
+            
+            button.addEventListener('mouseenter', () => {
+                button.style.background = '#f3f4f6';
+                button.style.borderColor = '#2563eb';
+            });
+            
+            button.addEventListener('mouseleave', () => {
+                button.style.background = 'white';
+                button.style.borderColor = '#e5e7eb';
+            });
+
+            button.addEventListener('click', () => {
+                this.scrollToResult(i);
+            });
+
+            jumpNav.appendChild(button);
+        }
+
+        // Add close button
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '×';
+        closeBtn.style.cssText = `
+            position: absolute;
+            top: 4px;
+            right: 6px;
+            border: none;
+            background: transparent;
+            color: #9ca3af;
+            font-size: 14px;
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+        
+        closeBtn.addEventListener('click', () => {
+            jumpNav.remove();
+        });
+
+        jumpNav.appendChild(closeBtn);
+        document.body.appendChild(jumpNav);
+
+        // Auto-hide after 10 seconds
+        setTimeout(() => {
+            if (jumpNav.parentNode) {
+                jumpNav.style.transition = 'opacity 0.3s ease';
+                jumpNav.style.opacity = '0';
+                setTimeout(() => jumpNav.remove(), 300);
+            }
+        }, 10000);
+    }
+
+    /**
+     * Scroll to specific result position
+     */
+    scrollToResult(position) {
+        const organicResults = this.getOrganicResults();
+        const targetResult = organicResults[position - 1];
+        
+        if (targetResult) {
+            targetResult.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center' 
+            });
+            
+            // Highlight the target result briefly
+            const originalStyle = targetResult.style.cssText;
+            targetResult.style.cssText += `
+                outline: 2px solid #2563eb;
+                outline-offset: 4px;
+                transition: outline 0.3s ease;
+            `;
+            
+            setTimeout(() => {
+                targetResult.style.cssText = originalStyle;
+            }, 2000);
+        }
+    }
+
+    /**
+     * Check if current page is Google search results
+     */
+    isGoogleSearchPage() {
+        return window.location.hostname.includes('google.') && 
+               window.location.pathname === '/search' &&
+               window.location.search.includes('q=');
+    }
+
+    /**
+     * Get extension settings from storage
+     */
+    async getExtensionSettings() {
+        try {
+            if (typeof chrome !== 'undefined' && chrome.storage) {
+                const result = await chrome.storage.local.get({
+                    autoEnhanceResults: true,
+                    showPositionNumbers: true,
+                    saveHistory: true,
+                    openInNewTab: false
+                });
+                return result;
+            }
+            
+            // Fallback to localStorage
+            return {
+                autoEnhanceResults: localStorage.getItem('autoEnhanceResults') !== 'false',
+                showPositionNumbers: localStorage.getItem('showPositionNumbers') !== 'false',
+                saveHistory: localStorage.getItem('saveHistory') !== 'false',
+                openInNewTab: localStorage.getItem('openInNewTab') === 'true'
+            };
+        } catch (error) {
+            console.error('Error getting extension settings:', error);
+            return {
+                autoEnhanceResults: true,
+                showPositionNumbers: true,
+                saveHistory: true,
+                openInNewTab: false
+            };
+        }
+    }
+
+    /**
+     * Get precise organic result selectors that exclude ads, PAA, etc.
+     */
+    getOrganicResultSelectors() {
+        // More precise selectors for organic results only
+        return [
+            // Main organic results container
+            '#search div[data-hveid] h3 a[href*="/url?"]',
+            '#search div[data-hveid] h3 a[href]:not([href*="googleadservices"]):not([href*="/aclk?"])',
+            '.g:not(.ads-visurl):not(.ads-fr) h3 a',
+            '.tF2Cxc h3 a', // Standard organic result title links
+            '.yuRUbf h3 a', // Another common organic result selector
+            // Exclude specific non-organic elements
+            ':not(.ads-visurl) .yuRUbf a',
+            ':not(.commercial-unit-desktop-top) .tF2Cxc h3 a'
+        ].join(', ');
+    }
+
+    /**
+     * Get only organic search results (exclude ads, PAA, etc.)
+     */
+    getOrganicResults() {
+        // Multiple selector strategies to get only organic results
+        const organicSelectors = [
+            // Primary organic result containers
+            '.tF2Cxc', // Standard result container
+            '.g:not(.ads-visurl):not(.ads-fr):not(.commercial-unit-desktop-top)', // Exclude ad containers
+            '.srg .g:not(.ads-visurl)', // Results in search results group, not ads
+            
+            // More specific organic containers
+            '#search .g[data-hveid]:not(.ads-visurl):not(.commercial-unit-desktop-top)',
+            '.MjjYud', // Another organic result container
+            
+            // Fallback selectors
+            '[data-sokoban-container] .g:not(.ads-visurl)',
+            '.hlcw0c' // Organic result wrapper
+        ];
+
+        let organicResults = [];
+        
+        for (const selector of organicSelectors) {
+            const results = Array.from(document.querySelectorAll(selector));
+            
+            // Filter out non-organic results
+            const filtered = results.filter(result => {
+                // Exclude if contains ad indicators
+                if (result.querySelector('.ads-visurl, .commercial-unit-desktop-top, .pla-unit')) {
+                    return false;
+                }
+                
+                // Exclude "People also ask" sections
+                if (result.closest('[data-initq], .related-question-pair, .kp-blk')) {
+                    return false;
+                }
+                
+                // Exclude knowledge panels and rich snippets that aren't organic
+                if (result.closest('.kp-wholepage, .knowledge-panel, .sports-template')) {
+                    return false;
+                }
+                
+                // Must have a title link to be considered organic
+                const titleLink = result.querySelector('h3 a, .LC20lb a, [role="heading"] a');
+                if (!titleLink) {
+                    return false;
+                }
+                
+                // Link must not be an ad link
+                const href = titleLink.href || '';
+                if (href.includes('googleadservices') || href.includes('/aclk?') || href.includes('shopping.google')) {
+                    return false;
+                }
+                
+                return true;
+            });
+            
+            if (filtered.length > organicResults.length) {
+                organicResults = filtered;
+            }
+        }
+        
+        // Remove duplicates based on title links
+        const uniqueResults = [];
+        const seenUrls = new Set();
+        
+        organicResults.forEach(result => {
+            const titleLink = result.querySelector('h3 a, .LC20lb a, [role="heading"] a');
+            if (titleLink && titleLink.href && !seenUrls.has(titleLink.href)) {
+                seenUrls.add(titleLink.href);
+                uniqueResults.push(result);
+            }
+        });
+        
+        return uniqueResults;
+    }
+
+    /**
+     * Immediately enhance current Google search page (like the JavaScript bookmark)
+     */
+    enhanceCurrentPageImmediately() {
+        try {
+            if (!this.isGoogleSearchPage()) {
+                return false;
+            }
+            
+            // Use the same logic as the JavaScript bookmark
+            const searchParams = new URLSearchParams(window.location.search);
+            searchParams.set('num', '1000');
+            window.location.search = searchParams.toString();
+            
+            return true;
+            
+        } catch (error) {
+            console.error('❌ Error enhancing current page immediately:', error);
             return false;
         }
     }
@@ -816,5 +1262,3 @@ function analyzeCompetition(keyword, results, options = {}) {
         }
     };
 }
-
-console.log('✅ Enhanced Keyword Rank Finder content script loaded successfully!');

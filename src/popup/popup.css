@@ -714,6 +714,63 @@ body {
     color: #721c24;
 }
 
+/* Auto-enhancement indicator styles */
+.rank-finder-enhancement-indicator {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+.rank-finder-jump-nav {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+.rank-finder-jump-nav button:hover {
+    transform: translateY(-1px);
+}
+
+/* Additional option styling for auto-enhance */
+.option-item input[type="checkbox"]:checked + .checkmark::after {
+    display: block;
+}
+
+/* Auto-enhance specific styling */
+#autoEnhanceResults + .checkmark {
+    background-color: #f9fafb;
+}
+
+#autoEnhanceResults:checked + .checkmark {
+    background-color: #2563eb;
+    border-color: #2563eb;
+}
+
+/* Success message styling */
+.message {
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin: 8px 0;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.message.success {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+}
+
+.message.error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+}
+
+.message.info {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1d4ed8;
+}
+
 /* Utility classes */
 .hidden {
     display: none !important;

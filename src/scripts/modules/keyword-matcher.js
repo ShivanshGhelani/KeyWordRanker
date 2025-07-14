@@ -20,13 +20,7 @@ class KeywordMatcher {
      * Main keyword ranking function
      */
     findKeywordRanking(keyword, results, options = {}) {
-        console.log(`🔍 KeywordMatcher.findKeywordRanking called with:`);
-        console.log(`   Keyword: "${keyword}"`);
-        console.log(`   Results length: ${results?.length || 0}`);
-        console.log(`   Options:`, options);
-        
         if (!keyword || !results.length) {
-            console.log(`❌ Early exit: No keyword or no results`);
             return { 
                 found: false, 
                 position: null, 
@@ -39,21 +33,12 @@ class KeywordMatcher {
         const mergedOptions = { ...this.matchingOptions, ...options };
         const normalizedKeyword = this.normalizeText(keyword, mergedOptions);
         
-        console.log(`🔍 Searching for keyword: "${keyword}" (normalized: "${normalizedKeyword}") in ${results.length} results`);
-        console.log(`📋 Merged options:`, mergedOptions);
-
         const matches = [];
         
         for (let i = 0; i < results.length; i++) {
             const result = results[i];
-            console.log(`🔎 Analyzing result ${i + 1}:`, {
-                title: result.title,
-                snippet: result.snippet?.substring(0, 100) + '...',
-                url: result.url
-            });
             
             const matchResult = this.analyzeResultMatch(normalizedKeyword, result, mergedOptions);
-            console.log(`   Match result:`, matchResult);
             
             if (matchResult.isMatch) {
                 matches.push({
@@ -61,14 +46,10 @@ class KeywordMatcher {
                     position: result.position || (i + 1),
                     result: result
                 });
-                console.log(`✅ Found match at position ${result.position || (i + 1)}`);
             }
         }
 
-        console.log(`📊 Total matches found: ${matches.length}`);
-
         if (matches.length === 0) {
-            console.log(`❌ No matches found`);
             return {
                 found: false,
                 position: null,
@@ -87,7 +68,6 @@ class KeywordMatcher {
         });
 
         const bestMatch = matches[0];
-        console.log(`🏆 Best match:`, bestMatch);
         
         return {
             found: true,
@@ -114,7 +94,8 @@ class KeywordMatcher {
             (urlMatch.confidence * options.weightURL)
         ) / (options.weightTitle + options.weightSnippet + options.weightURL);
 
-        const isMatch = weightedScore > 0.1; // Minimum threshold for considering it a match
+        // Lower threshold for considering it a match - was 0.1, now 0.05
+        const isMatch = weightedScore > 0.05; 
         
         let matchType = 'none';
         if (titleMatch.isExact || snippetMatch.isExact || urlMatch.isExact) {
@@ -233,10 +214,11 @@ class KeywordMatcher {
     }
 
     /**
-     * Exact string matching
+     * Exact string matching - Enhanced with case insensitive check
      */
     performExactMatch(keyword, text, options) {
-        const index = text.indexOf(keyword);
+        // First try exact case-sensitive match
+        let index = text.indexOf(keyword);
         
         if (index !== -1) {
             return {
@@ -245,6 +227,23 @@ class KeywordMatcher {
                 matchedText: keyword,
                 confidence: 1.0
             };
+        }
+        
+        // If not case sensitive, try lowercase match
+        if (!options.caseSensitive) {
+            const lowerKeyword = keyword.toLowerCase();
+            const lowerText = text.toLowerCase();
+            index = lowerText.indexOf(lowerKeyword);
+            
+            if (index !== -1) {
+                const actualMatch = text.substring(index, index + keyword.length);
+                return {
+                    found: true,
+                    position: index,
+                    matchedText: actualMatch,
+                    confidence: 0.95
+                };
+            }
         }
 
         return { found: false, confidence: 0 };
@@ -453,8 +452,8 @@ class KeywordMatcher {
         const avgSimilarity = matchedWords > 0 ? totalSimilarity / matchedWords : 0;
         const enhancedConfidence = (baseConfidence * 0.6 + avgSimilarity * 0.3 + proximityBonus * 0.1);
         
-        // Lower threshold for partial matches but with quality scoring
-        if (enhancedConfidence > 0.25 && matchedWords > 0) {
+        // Lower threshold for partial matches but with quality scoring - was 0.25, now 0.15
+        if (enhancedConfidence > 0.15 && matchedWords > 0) {
             return {
                 found: true,
                 confidence: Math.min(enhancedConfidence * 0.6, 0.9), // Cap at 90% for partial matches

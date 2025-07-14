@@ -15,9 +15,9 @@ class SearchHistory {
     }
 
     async init() {
-        console.log('📚 Initializing search history functionality');
+
         await this.loadSearchHistory();
-        console.log('✅ Search history initialized');
+
     }
 
     async loadSearchHistory() {
@@ -27,10 +27,10 @@ class SearchHistory {
             
             if (storedHistory && Array.isArray(storedHistory)) {
                 this.data = storedHistory;
-                console.log(`📚 Loaded ${storedHistory.length} search history entries`);
+
             } else {
                 this.data = [];
-                console.log('📚 No existing search history found, starting fresh');
+
             }
             
             // Clean old entries (older than 30 days)
@@ -78,7 +78,7 @@ class SearchHistory {
             // Save to Chrome storage
             await this.saveHistoryToStorage();
 
-            console.log(`📚 Saved search history for keyword: "${keyword}"`);
+
 
         } catch (error) {
             console.warn('⚠️ Failed to save search history:', error);
@@ -109,7 +109,7 @@ class SearchHistory {
         
         const removedCount = originalLength - this.data.length;
         if (removedCount > 0) {
-            console.log(`🧹 Cleaned ${removedCount} old history entries`);
+
             this.saveHistoryToStorage(); // Save after cleaning
         }
     }
@@ -195,7 +195,7 @@ class SearchHistory {
             // Save updated history
             await this.saveHistoryToStorage();
 
-            console.log(`🗑️ Cleared ${entriesToRemove.length} history entries`);
+
             return {
                 success: true,
                 removedCount: entriesToRemove.length,

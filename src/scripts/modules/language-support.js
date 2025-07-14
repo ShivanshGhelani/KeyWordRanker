@@ -178,7 +178,7 @@ class LanguageSupport {
 
     init() {
         this.detectCurrentContext();
-        console.log(`🌍 Language Support initialized: ${this.currentLanguage} (${this.currentCountry})`);
+
     }
 
     /**

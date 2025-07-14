@@ -96,7 +96,7 @@ class GoogleSERPScraper {
     }
     
     init() {
-        console.log('🔥 Enhanced Keyword Rank Finder: Content script loaded on:', window.location.href);
+
         this.setupMessageListener();
         this.observePageChanges();
         this.sendReadySignal();
@@ -130,7 +130,7 @@ class GoogleSERPScraper {
     
     setupMessageListener() {
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-            console.log('📨 Enhanced content script received message:', request);
+
             
             switch (request.action) {
                 case 'scrapeResults':
@@ -172,7 +172,7 @@ class GoogleSERPScraper {
             const options = request.options || {};
             const isCurrentPageAnalysis = request.action === 'scrapeCurrentPageResults';
             
-            console.log(`🎯 Enhanced keyword analysis for: "${keyword}"`);
+
             
             // Apply sophisticated bot detection avoidance (Task 9)
             if (isCurrentPageAnalysis) {
@@ -297,7 +297,7 @@ class GoogleSERPScraper {
         const results = [];
         
         try {
-            console.log('🔍 Starting enhanced SERP scraping');
+
             
             // Get result containers
             let resultElements = this.getResultContainers();
@@ -307,7 +307,7 @@ class GoogleSERPScraper {
                 resultElements = this.getFallbackResults();
             }
             
-            console.log(`✅ Found ${resultElements.length} result containers`);
+
             
             // Process each container
             resultElements.forEach((container, index) => {
@@ -322,7 +322,7 @@ class GoogleSERPScraper {
                 }
             });
             
-            console.log(`🎯 Successfully scraped ${results.length} results`);
+
             this.currentResults = results;
             return results;
             
@@ -336,7 +336,7 @@ class GoogleSERPScraper {
         for (const selector of this.resultSelectors.resultContainers) {
             const elements = document.querySelectorAll(selector);
             if (elements.length > 0) {
-                console.log(`📋 Using container selector: ${selector} (${elements.length} elements)`);
+
                 return Array.from(elements);
             }
         }
@@ -344,7 +344,7 @@ class GoogleSERPScraper {
     }
     
     getFallbackResults() {
-        console.log('🔄 Trying fallback result extraction');
+
         
         // Fallback 1: h3 elements
         let elements = document.querySelectorAll('h3');
@@ -355,7 +355,7 @@ class GoogleSERPScraper {
             }).map(h3 => h3.closest('div'));
             
             if (filtered.length > 0) {
-                console.log(`📋 Fallback found ${filtered.length} results via h3 elements`);
+
                 return filtered;
             }
         }
@@ -363,7 +363,7 @@ class GoogleSERPScraper {
         // Fallback 2: Data attributes
         elements = document.querySelectorAll('div[data-ved], div[data-hveid]');
         if (elements.length > 0) {
-            console.log(`📋 Fallback found ${elements.length} results via data attributes`);
+
             return Array.from(elements);
         }
         
@@ -497,20 +497,20 @@ class GoogleSERPScraper {
             ...options
         };
         
-        console.log(`🎯 Enhanced search for: "${keyword}" with options:`, matchingOptions);
+
         
         // Normalize keyword
         const normalizedKeyword = this.normalizeText(keyword, matchingOptions);
         const keywordWords = this.extractKeywordWords(normalizedKeyword, matchingOptions);
         
-        console.log(`📝 Normalized: "${normalizedKeyword}"`);
-        console.log(`🔤 Words:`, keywordWords);
+
+
         
         // Phase 1: Exact phrase matching (highest priority)
         if (matchingOptions.exactPhrase) {
             const exactMatch = this.findExactPhraseMatch(normalizedKeyword, results, matchingOptions);
             if (exactMatch.found) {
-                console.log('🎯 Exact phrase match found:', exactMatch);
+
                 return exactMatch;
             }
         }
@@ -518,7 +518,7 @@ class GoogleSERPScraper {
         // Phase 2: Enhanced exact matching in titles
         const titleMatch = this.findInTitles(keywordWords, normalizedKeyword, results, matchingOptions, 'exact');
         if (titleMatch.found) {
-            console.log('📰 Title match found:', titleMatch);
+
             return titleMatch;
         }
         
@@ -526,7 +526,7 @@ class GoogleSERPScraper {
         if (matchingOptions.includeSnippets) {
             const snippetMatch = this.findInSnippets(keywordWords, normalizedKeyword, results, matchingOptions, 'exact');
             if (snippetMatch.found) {
-                console.log('📄 Snippet match found:', snippetMatch);
+
                 return snippetMatch;
             }
         }
@@ -535,20 +535,20 @@ class GoogleSERPScraper {
         if (matchingOptions.fuzzyMatching) {
             const fuzzyTitleMatch = this.findInTitles(keywordWords, normalizedKeyword, results, matchingOptions, 'fuzzy');
             if (fuzzyTitleMatch.found) {
-                console.log('🔍 Fuzzy title match found:', fuzzyTitleMatch);
+
                 return fuzzyTitleMatch;
             }
             
             if (matchingOptions.includeSnippets) {
                 const fuzzySnippetMatch = this.findInSnippets(keywordWords, normalizedKeyword, results, matchingOptions, 'fuzzy');
                 if (fuzzySnippetMatch.found) {
-                    console.log('🔍 Fuzzy snippet match found:', fuzzySnippetMatch);
+
                     return fuzzySnippetMatch;
                 }
             }
         }
         
-        console.log(`❌ No matches found for: "${keyword}"`);
+
         return { 
             found: false, 
             position: null,
@@ -955,8 +955,8 @@ class GoogleSERPScraper {
             ...options
         };
 
-        console.log(`🎯 Enhanced position detection for: "${keyword}"`);
-        console.log(`📊 Detection options:`, detectionOptions);
+
+
 
         const positionResults = {
             keyword: keyword,
@@ -985,7 +985,7 @@ class GoogleSERPScraper {
             // Update summary
             this.updateDetectionSummary(positionResults.detectionSummary, primaryMatch);
             
-            console.log(`✅ Primary match found at position ${primaryMatch.position}`);
+
         }
 
         // Find additional matches if requested
@@ -1015,7 +1015,7 @@ class GoogleSERPScraper {
         // Generate position analysis
         positionResults.analysis = this.generatePositionAnalysis(positionResults);
 
-        console.log(`📊 Position detection complete:`, positionResults.analysis);
+
         
         return positionResults;
     }
@@ -1250,7 +1250,7 @@ class GoogleSERPScraper {
     // ============================================================================
 
     initializeBotAvoidance() {
-        console.log('🤖 Initializing bot detection avoidance mechanisms');
+
         
         // Set up request monitoring
         this.setupRequestMonitoring();
@@ -1261,7 +1261,7 @@ class GoogleSERPScraper {
         // Set up suspicious activity detection
         this.setupSuspiciousActivityDetection();
         
-        console.log('✅ Bot avoidance mechanisms initialized');
+
     }
 
     initializeUserAgents() {
@@ -1338,7 +1338,7 @@ class GoogleSERPScraper {
         
         // Check if we need to enforce cooldown
         if (this.needsCooldown()) {
-            console.log('🕐 Applying cooldown period to avoid detection');
+
             await this.applyCooldown();
         }
         
@@ -1360,7 +1360,7 @@ class GoogleSERPScraper {
         const humanizationDelay = this.getHumanizationDelay(requestType);
         const totalDelay = finalDelay + humanizationDelay;
         
-        console.log(`⏱️ Applying human-like delay: ${totalDelay}ms (type: ${requestType})`);
+
         
         // Update tracking
         this.updateRequestTracking(totalDelay);
@@ -1375,7 +1375,7 @@ class GoogleSERPScraper {
 
     async applyCooldown() {
         const cooldownTime = this.getRandomDelay(30000, 90000); // 30-90 seconds
-        console.log(`🛑 Entering cooldown period: ${cooldownTime/1000}s`);
+
         
         // Simulate human behavior during cooldown
         await this.simulateHumanCooldownBehavior(cooldownTime);
@@ -1390,7 +1390,7 @@ class GoogleSERPScraper {
         ];
         
         const selectedBehavior = behaviors[Math.floor(Math.random() * behaviors.length)];
-        console.log(`🎭 Simulating human behavior: ${selectedBehavior}`);
+
         
         // Different behaviors have different patterns
         switch (selectedBehavior) {
@@ -1558,7 +1558,7 @@ class GoogleSERPScraper {
     }
 
     adjustBehaviorForSuspicion() {
-        console.log('🔧 Adjusting behavior to reduce suspicion');
+
         
         // Increase delays
         this.botAvoidance.behaviourPatterns.humanDelayRanges.reading = [2000, 6000];
@@ -1615,7 +1615,7 @@ class GoogleSERPScraper {
      * Apply stealth mode for high-risk scenarios
      */
     async enableStealthMode() {
-        console.log('🥷 Enabling stealth mode for maximum bot avoidance');
+
         
         this.stealthMode = {
             enabled: true,
@@ -1642,19 +1642,19 @@ class GoogleSERPScraper {
     }
 
     async simulateMouseMovement() {
-        console.log('🖱️ Simulating mouse movement');
+
         // This would trigger mouse move events in a real implementation
         await new Promise(resolve => setTimeout(resolve, this.getRandomDelay(200, 800)));
     }
 
     async simulatePageInteraction() {
-        console.log('🤝 Simulating page interaction');
+        //
         // Simulate user interacting with page elements
         await new Promise(resolve => setTimeout(resolve, this.getRandomDelay(500, 1500)));
     }
 
     async simulateReadingPause() {
-        console.log('📖 Simulating reading pause');
+        //
         const readingTime = this.getRandomDelay(3000, 8000);
         await new Promise(resolve => setTimeout(resolve, readingTime));
     }
@@ -1702,7 +1702,7 @@ class GoogleSERPScraper {
     // ============================================================================
 
     initializeErrorHandling() {
-        console.log('🚨 Initializing comprehensive error handling system');
+        //
         
         // Set up global error catching
         this.setupGlobalErrorHandlers();
@@ -1716,7 +1716,7 @@ class GoogleSERPScraper {
         // Initialize error monitoring
         this.setupErrorMonitoring();
         
-        console.log('✅ Error handling system initialized');
+        //
     }
 
     setupGlobalErrorHandlers() {
@@ -1918,7 +1918,7 @@ class GoogleSERPScraper {
     async attemptRecovery(errorDetails) {
         const { category, operation, context } = errorDetails;
         
-        console.log(`🔄 Attempting recovery for ${category} error in ${operation}`);
+        //
 
         try {
             // Get the appropriate fallback strategy
@@ -1934,7 +1934,7 @@ class GoogleSERPScraper {
                 errorDetails
             );
 
-            console.log(`✅ Recovery successful for ${category} error`);
+            //
             return {
                 success: true,
                 result: recoveryResult,
@@ -1968,7 +1968,6 @@ class GoogleSERPScraper {
             try {
                 if (attempt > 0) {
                     const delay = this.calculateRetryDelay(attempt);
-                    console.log(`⏳ Retry attempt ${attempt}/${maxRetries} after ${delay}ms`);
                     await new Promise(resolve => setTimeout(resolve, delay));
                 }
 
@@ -2003,7 +2002,6 @@ class GoogleSERPScraper {
     // ============================================================================
 
     async handleDOMError(errorDetails) {
-        console.log('🔧 Handling DOM error with fallback selectors');
         
         const { context } = errorDetails;
         
@@ -2015,7 +2013,6 @@ class GoogleSERPScraper {
                 try {
                     const elements = document.querySelectorAll(fallbackSelector);
                     if (elements.length > 0) {
-                        console.log(`✅ DOM recovery successful with selector: ${fallbackSelector}`);
                         return { elements: Array.from(elements), selector: fallbackSelector };
                     }
                 } catch (error) {
@@ -2041,7 +2038,6 @@ class GoogleSERPScraper {
     }
 
     async useGenericDOMApproach(context) {
-        console.log('🔍 Using generic DOM approach');
         
         // Try to find results using generic patterns
         const genericSelectors = [
@@ -2064,7 +2060,6 @@ class GoogleSERPScraper {
     }
 
     async handleNetworkError(errorDetails) {
-        console.log('🌐 Handling network error');
         
         const { context } = errorDetails;
         
@@ -2081,7 +2076,6 @@ class GoogleSERPScraper {
         // Use cached data if available
         const cachedData = this.getCachedData(context);
         if (cachedData) {
-            console.log('📁 Using cached data for network recovery');
             return { data: cachedData, source: 'cache' };
         }
 
@@ -2107,7 +2101,6 @@ class GoogleSERPScraper {
     }
 
     async handleParsingError(errorDetails) {
-        console.log('📝 Handling parsing error');
         
         const { context } = errorDetails;
         
@@ -2118,7 +2111,6 @@ class GoogleSERPScraper {
             for (const method of alternativeMethods) {
                 try {
                     const result = await this.parseWithMethod(context.data, method);
-                    console.log(`✅ Parsing recovery successful with method: ${method}`);
                     return { data: result, method: method };
                 } catch (error) {
                     console.warn(`⚠️ Alternative parsing method failed: ${method}`);
@@ -2141,7 +2133,6 @@ class GoogleSERPScraper {
     }
 
     async useSafeParsing(context) {
-        console.log('🛡️ Using safe parsing approach');
         
         // Return minimal safe structure
         return {
@@ -2153,7 +2144,6 @@ class GoogleSERPScraper {
     }
 
     async handleValidationError(errorDetails) {
-        console.log('✅ Handling validation error');
         
         const { context } = errorDetails;
         
@@ -2162,7 +2152,6 @@ class GoogleSERPScraper {
             const sanitizedInput = this.sanitizeInput(context.input, context.inputType);
             
             if (sanitizedInput !== context.input) {
-                console.log('🧹 Input sanitized, retrying operation');
                 return { input: sanitizedInput, sanitized: true };
             }
         }
@@ -2203,14 +2192,12 @@ class GoogleSERPScraper {
     }
 
     async handleTimeoutError(errorDetails) {
-        console.log('⏰ Handling timeout error');
         
         const { context } = errorDetails;
         
         // Try with extended timeout
         if (context.operation && context.extendTimeout !== false) {
             const extendedTimeout = (context.originalTimeout || 30000) * 2;
-            console.log(`⏰ Retrying with extended timeout: ${extendedTimeout}ms`);
             
             try {
                 return await this.executeWithTimeout(context.operation, extendedTimeout);
@@ -2221,7 +2208,6 @@ class GoogleSERPScraper {
 
         // Return partial results if available
         if (context.partialResults) {
-            console.log('📊 Returning partial results due to timeout');
             return {
                 success: true,
                 data: context.partialResults,
@@ -2234,7 +2220,6 @@ class GoogleSERPScraper {
     }
 
     async handleBotDetectionError(errorDetails) {
-        console.log('🤖 Handling bot detection error - applying countermeasures');
         
         // Trigger enhanced bot avoidance
         this.botAvoidance.isDetected = true;
@@ -2245,7 +2230,6 @@ class GoogleSERPScraper {
         
         // Extended cooldown
         const cooldownTime = this.getRandomDelay(60000, 180000); // 1-3 minutes
-        console.log(`🛑 Bot detection cooldown: ${cooldownTime/1000}s`);
         await new Promise(resolve => setTimeout(resolve, cooldownTime));
         
         // Reset detection flag gradually
@@ -2269,11 +2253,9 @@ class GoogleSERPScraper {
         // Clear request history to start fresh
         this.requestMonitor.requestHistory = [];
         
-        console.log('🛡️ Bot detection countermeasures applied');
     }
 
     async handleUnknownError(errorDetails) {
-        console.log('❓ Handling unknown error');
         
         // Log for debugging
         console.warn('Unknown error details:', errorDetails);
@@ -2310,7 +2292,6 @@ class GoogleSERPScraper {
         // Wait for breaker period
         await new Promise(resolve => setTimeout(resolve, breakerTime));
         
-        console.log(`🔌 Circuit breaker deactivated for ${errorCategory}`);
         
         return {
             success: false,
@@ -2418,7 +2399,6 @@ class GoogleSERPScraper {
     // ============================================================================
 
     initializeSearchHistory() {
-        console.log('📚 Initializing search history functionality');
         
         this.searchHistory = {
             maxHistorySize: 50,
@@ -2430,7 +2410,6 @@ class GoogleSERPScraper {
         // Load existing history
         this.loadSearchHistory();
         
-        console.log('✅ Search history initialized');
     }
 
     async loadSearchHistory() {
@@ -2440,10 +2419,8 @@ class GoogleSERPScraper {
             
             if (storedHistory && Array.isArray(storedHistory)) {
                 this.searchHistory.data = storedHistory;
-                console.log(`📚 Loaded ${storedHistory.length} search history entries`);
             } else {
                 this.searchHistory.data = [];
-                console.log('📚 No existing search history found, starting fresh');
             }
             
             // Clean old entries (older than 30 days)
@@ -2491,7 +2468,6 @@ class GoogleSERPScraper {
             // Save to Chrome storage
             await this.saveHistoryToStorage();
 
-            console.log(`📚 Saved search history for keyword: "${keyword}"`);
 
         } catch (error) {
             console.warn('⚠️ Failed to save search history:', error);
@@ -2522,7 +2498,6 @@ class GoogleSERPScraper {
         
         const removedCount = originalLength - this.searchHistory.data.length;
         if (removedCount > 0) {
-            console.log(`🧹 Cleaned ${removedCount} old history entries`);
             this.saveHistoryToStorage(); // Save after cleaning
         }
     }
@@ -2608,7 +2583,6 @@ class GoogleSERPScraper {
             // Save updated history
             await this.saveHistoryToStorage();
 
-            console.log(`🗑️ Cleared ${entriesToRemove.length} history entries`);
             return {
                 success: true,
                 removedCount: entriesToRemove.length,
@@ -2779,7 +2753,6 @@ class GoogleSERPScraper {
 
     async useOfflineData(context) {
         // Placeholder for offline data usage
-        console.log('📴 Using offline data fallback');
         return {
             success: true,
             data: context.offlineData || {},
@@ -2843,11 +2816,9 @@ class GoogleSERPScraper {
         const timeout = options.timeout || 30000;
         
         try {
-            console.log('🔧 Executing ' + operationName + ' with safety wrapper');
             
             const result = await this.executeWithTimeout(operation, timeout);
             
-            console.log('✅ ' + operationName + ' completed successfully');
             return {
                 success: true,
                 result: result,
@@ -2965,4 +2936,3 @@ function analyzeCompetition(keyword, results, options = {}) {
     };
 }
 
-console.log('✅ Enhanced Keyword Rank Finder content script loaded successfully!');
