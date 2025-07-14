@@ -1,0 +1,57 @@
+name: Pull Request
+description: Submit a pull request to contribute code
+title: "[PR]: "
+labels: ["pull-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for contributing to Google Keyword Rank Finder!
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Please describe your changes in detail
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation and Context
+      description: Why is this change required? What problem does it solve?
+    validations:
+      required: true
+  - type: textarea
+    id: testing
+    attributes:
+      label: How Has This Been Tested?
+      description: Please describe in detail how you tested your changes.
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots (if appropriate)
+      description: Add screenshots to help explain your changes.
+  - type: dropdown
+    id: change-type
+    attributes:
+      label: Type of change
+      options:
+        - Bug fix (non-breaking change which fixes an issue)
+        - New feature (non-breaking change which adds functionality)
+        - Breaking change (fix or feature that would cause existing functionality to not work as expected)
+        - This change requires a documentation update
+    validations:
+      required: true
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: My code follows the code style of this project
+        - label: My change requires a change to the documentation
+        - label: I have updated the documentation accordingly
+        - label: I have read the CONTRIBUTING document
+        - label: I have added tests to cover my changes
+        - label: All new and existing tests passed

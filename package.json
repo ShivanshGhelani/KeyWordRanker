@@ -1,0 +1,71 @@
+{
+  "name": "google-keyword-rank-finder",
+  "version": "1.0.0",
+  "description": "A professional Chrome extension for SEO professionals and marketers to instantly find keyword rankings on Google search results",
+  "main": "src/popup/popup.js",
+  "scripts": {
+    "test": "npm run test:unit && npm run test:integration && npm run test:e2e",
+    "test:unit": "node tests/run-tests.js unit",
+    "test:integration": "node tests/run-tests.js integration", 
+    "test:e2e": "node tests/run-tests.js e2e",
+    "test:browser": "node tests/browser-test-runner.js",
+    "lint": "eslint src/ --ext .js",
+    "lint:fix": "eslint src/ --ext .js --fix",
+    "format": "prettier --write \"src/**/*.{js,html,css}\"",
+    "build": "npm run lint && npm test",
+    "dev": "npm run lint && npm run test:unit",
+    "clean": "rimraf dist coverage",
+    "validate": "node validations/validate-manifest.js",
+    "docs": "jsdoc src/ -d docs/api",
+    "zip": "node scripts/create-release-zip.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/GoogleExtensionKeywordRank.git"
+  },
+  "keywords": [
+    "chrome-extension",
+    "seo",
+    "keyword-ranking",
+    "google-search",
+    "serp-analysis",
+    "rank-tracking",
+    "manifest-v3",
+    "digital-marketing",
+    "search-optimization",
+    "position-tracking"
+  ],
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/yourusername/GoogleExtensionKeywordRank/issues"
+  },
+  "homepage": "https://github.com/yourusername/GoogleExtensionKeywordRank#readme",
+  "devDependencies": {
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0",
+    "jsdoc": "^4.0.0",
+    "rimraf": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "browserslist": [
+    "Chrome >= 88"
+  ],
+  "manifest": {
+    "version": "1.0.0",
+    "manifest_version": 3,
+    "minimum_chrome_version": "88"
+  },
+  "permissions": [
+    "activeTab",
+    "storage", 
+    "tabs"
+  ],
+  "host_permissions": [
+    "*://www.google.com/*",
+    "*://google.com/*"
+  ]
+}

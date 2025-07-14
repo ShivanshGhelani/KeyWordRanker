@@ -21,5 +21,9 @@ node_modules/
 *.sln
 *.sw?
 
+
+.curosr
+.taskmaster
+
 # OS specific
 .DS_Store
