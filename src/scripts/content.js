@@ -661,7 +661,8 @@ class GoogleSERPScraper {
                 includeSnippets: true,
                 language: languageContext.language,
                 fuzzyMatching: options.fuzzyMatching !== false,
-                highlightResults: options.highlightResults === true
+                highlightResults: options.highlightResults === true,
+                findAllOccurrences: options.findAllOccurrences === true // New option for multiple rankings
             };
 
             // Scrape current page results
@@ -674,22 +675,43 @@ class GoogleSERPScraper {
                 throw new Error(scrapeResult.error || 'Failed to scrape search results');
             }
 
-            // Find keyword ranking in results
-            const rankingResult = this.keywordMatcher.findKeywordRanking(
-                keyword, 
-                scrapeResult.results, 
-                {
-                    fuzzyMatching: scrapingOptions.fuzzyMatching,
-                    matchThreshold: options.matchThreshold || 0.8,
-                    language: languageContext.language
-                }
-            );
+            // Limit results to the specified maximum BEFORE analysis
+            let limitedResults = scrapeResult.results;
+            if (scrapingOptions.maxResults && scrapeResult.results.length > scrapingOptions.maxResults) {
+                limitedResults = scrapeResult.results.slice(0, scrapingOptions.maxResults);
+            }
 
-            // Save search to history if successful
+            // Find keyword ranking in results - with option for all occurrences
+            let rankingResult;
+            if (scrapingOptions.findAllOccurrences) {
+                // Find all occurrences of the keyword in limited results
+                rankingResult = this.findAllKeywordOccurrences(
+                    keyword, 
+                    limitedResults, 
+                    {
+                        fuzzyMatching: scrapingOptions.fuzzyMatching,
+                        matchThreshold: options.matchThreshold || 0.8,
+                        language: languageContext.language
+                    }
+                );
+            } else {
+                // Find only the first occurrence (existing behavior) in limited results
+                rankingResult = this.keywordMatcher.findKeywordRanking(
+                    keyword, 
+                    limitedResults, 
+                    {
+                        fuzzyMatching: scrapingOptions.fuzzyMatching,
+                        matchThreshold: options.matchThreshold || 0.8,
+                        language: languageContext.language
+                    }
+                );
+            }
+
+            // Save search to history if successful (use limited results count)
             if (rankingResult.found) {
                 await this.searchHistory.saveSearchResult(
                     keyword,
-                    scrapeResult.results,
+                    limitedResults,
                     {
                         found: rankingResult.found,
                         position: rankingResult.position,
@@ -705,11 +727,13 @@ class GoogleSERPScraper {
                 ranking: {
                     found: rankingResult.found,
                     position: rankingResult.position,
+                    allPositions: rankingResult.allPositions || (rankingResult.found ? [rankingResult.position] : []), // Include all positions
                     matchedIn: rankingResult.matchedIn || 'unknown',
                     confidence: rankingResult.confidence || 'medium',
-                    fuzzy: rankingResult.fuzzy || false
+                    fuzzy: rankingResult.fuzzy || false,
+                    totalMatches: rankingResult.totalMatches || (rankingResult.found ? 1 : 0)
                 },
-                totalResults: scrapeResult.results.length,
+                totalResults: limitedResults.length, // Return the actual count of analyzed results
                 searchQuery: currentSearchQuery,
                 keyword: keyword,
                 timestamp: Date.now(),
@@ -1222,6 +1246,110 @@ class GoogleSERPScraper {
             return false;
         }
     }
+
+    // ============================================================================
+    // MULTIPLE KEYWORD OCCURRENCES DETECTION
+    // ============================================================================
+    
+    findAllKeywordOccurrences(keyword, results, options = {}) {
+        try {
+            const allPositions = [];
+            const matchedResults = [];
+            
+            // Normalize keyword for comparison
+            const normalizedKeyword = keyword.toLowerCase().trim();
+            
+            results.forEach((result, index) => {
+                if (!result) return;
+                
+                const position = index + 1;
+                let isMatch = false;
+                let matchType = 'unknown';
+                let confidence = 'low';
+                
+                // Check title
+                if (result.title && this.checkTextMatch(result.title, normalizedKeyword, options)) {
+                    isMatch = true;
+                    matchType = 'title';
+                    confidence = 'high';
+                }
+                
+                // Check URL if title doesn't match
+                if (!isMatch && result.url && this.checkTextMatch(result.url, normalizedKeyword, options)) {
+                    isMatch = true;
+                    matchType = 'url';
+                    confidence = 'medium';
+                }
+                
+                // Check snippet/description if others don't match
+                if (!isMatch && result.snippet && this.checkTextMatch(result.snippet, normalizedKeyword, options)) {
+                    isMatch = true;
+                    matchType = 'snippet';
+                    confidence = 'medium';
+                }
+                
+                if (isMatch) {
+                    allPositions.push(position);
+                    matchedResults.push({
+                        position,
+                        result,
+                        matchType,
+                        confidence
+                    });
+                }
+            });
+            
+            const found = allPositions.length > 0;
+            
+            return {
+                found,
+                position: found ? allPositions[0] : null, // Primary position (first occurrence)
+                allPositions, // All positions where keyword appears
+                matchedIn: found ? matchedResults[0].matchType : 'unknown',
+                confidence: found ? matchedResults[0].confidence : 'none',
+                fuzzy: options.fuzzyMatching === true,
+                totalMatches: allPositions.length,
+                matchedResults // Detailed info about all matches
+            };
+            
+        } catch (error) {
+            console.error('❌ Error finding all keyword occurrences:', error);
+            return {
+                found: false,
+                position: null,
+                allPositions: [],
+                matchedIn: 'error',
+                confidence: 'none',
+                fuzzy: false,
+                totalMatches: 0,
+                matchedResults: []
+            };
+        }
+    }
+    
+    checkTextMatch(text, keyword, options = {}) {
+        if (!text || !keyword) return false;
+        
+        const normalizedText = text.toLowerCase();
+        const normalizedKeyword = keyword.toLowerCase();
+        
+        if (options.fuzzyMatching !== false) {
+            // Fuzzy matching: check if keyword words appear in text
+            const keywordWords = normalizedKeyword.split(/\s+/);
+            const matchedWords = keywordWords.filter(word => 
+                word.length > 2 && normalizedText.includes(word)
+            );
+            
+            // Match if at least 70% of significant words are found
+            const threshold = options.matchThreshold || 0.7;
+            return (matchedWords.length / Math.max(keywordWords.length, 1)) >= threshold;
+        } else {
+            // Exact matching
+            return normalizedText.includes(normalizedKeyword);
+        }
+    }
+
+    // ============================================================================
 }
 
 // Initialize the scraper
