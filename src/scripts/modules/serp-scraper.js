@@ -67,16 +67,20 @@ class SERPScraper {
             const results = [];
             const resultContainers = this.findResultContainers();
             
-            resultContainers.forEach((container, index) => {
+            // Apply maxResults limit early if specified
+            const maxResults = options.maxResults || resultContainers.length;
+            const limitedContainers = resultContainers.slice(0, maxResults);
+            
+            limitedContainers.forEach((container, index) => {
                 const resultData = this.extractResultData(container, index + 1);
                 if (resultData) {
                     results.push(resultData);
                 }
             });
             
-            // Add position numbers to search results if enabled
+            // Add position numbers to search results if enabled (only to limited containers)
             if (options.addPositionNumbers !== false) {
-                this.addPositionNumbersToResults(resultContainers);
+                this.addPositionNumbersToResults(limitedContainers);
             }
             
             this.currentResults = results;

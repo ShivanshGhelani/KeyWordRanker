@@ -51,12 +51,11 @@ class KeywordRankFinder {
         this.openInNewTab = document.getElementById('openInNewTab');
         this.saveHistory = document.getElementById('saveHistory');
         this.showPositionNumbers = document.getElementById('showPositionNumbers');
-        this.autoEnhanceResults = document.getElementById('autoEnhanceResults');
         
         // Result count options
         this.resultCountOptions = document.getElementById('resultCountOptions');
         this.resultCountButtons = document.querySelectorAll('.result-count-btn');
-        this.currentResultCount = 'all'; // Default to 'all' when 1000 results is unchecked
+        this.currentResultCount = 'all'; // Default to 'all'
         
         // Results and stats
         this.resultsSection = document.getElementById('results');
@@ -138,7 +137,7 @@ class KeywordRankFinder {
         this.showPositionNumbers?.addEventListener('change', () => this.togglePositionNumbers());
         
         // Auto-enhance Results
-        this.autoEnhanceResults?.addEventListener('change', () => this.toggleAutoEnhanceResults());
+        // Removed - simplifying to only result count options
         
         // Result Count Options
         this.resultCountButtons.forEach(btn => {
@@ -473,19 +472,13 @@ class KeywordRankFinder {
         params.set('hl', regionSettings.hl);
         params.set('gl', regionSettings.gl);
         
-        // Add result count parameter based on auto-enhance setting
+        // Add result count parameter based on selected count
         let numResults;
-        if (this.autoEnhanceResults?.checked) {
-            // When auto-enhance is enabled, use the settings limit (up to 1000)
-            numResults = Math.min(parseInt(this.resultsLimit?.value) || 1000, 1000);
+        if (this.currentResultCount === 'all') {
+            // 'All' means use default Google results (usually 10-20)
+            numResults = 100; // Set a reasonable default when 'all' is selected
         } else {
-            // When auto-enhance is disabled, use the selected result count
-            if (this.currentResultCount === 'all') {
-                // 'All' means use default Google results (usually 10-20)
-                numResults = 100; // Set a reasonable default when 'all' is selected
-            } else {
-                numResults = parseInt(this.currentResultCount);
-            }
+            numResults = parseInt(this.currentResultCount);
         }
         params.set('num', numResults.toString());
         
@@ -649,13 +642,39 @@ class KeywordRankFinder {
         
         if (result.found) {
             const fuzzyText = result.fuzzy ? ' (fuzzy match)' : '';
-            const totalResultsText = result.totalResults ? ` • Analyzed ${result.totalResults} search results` : '';
             
-            // Handle multiple rankings
-            if (result.multipleRankings && result.allRanks && result.allRanks.length > 1) {
-                const ranksList = result.allRanks.map(rank => `#${rank}`).join(', ');
-                const primaryRank = result.allRanks[0];
+            // Create clear messaging about result range analyzed
+            let rangeText = '';
+            if (this.currentResultCount === 'all') {
+                rangeText = ` • Analyzed all ${result.totalResults} search results`;
+            } else {
+                const maxRange = parseInt(this.currentResultCount);
+                rangeText = ` • Analyzed top ${Math.min(maxRange, result.totalResults)} search results (positions 1-${maxRange})`;
+            }
+            
+            // Determine how many results to show and filter rankings accordingly
+            let displayedRanks = [];
+            let numResultsToShow = 0;
+            
+            if (this.currentResultCount === 'all') {
+                // Show all results
+                numResultsToShow = result.totalResults;
+                displayedRanks = result.allRanks || [];
+            } else {
+                // Show only results within the selected range (e.g., positions 1-50 for "50" selection)
+                const maxPosition = parseInt(this.currentResultCount);
+                numResultsToShow = maxPosition;
                 
+                // Filter rankings to only include positions within the selected range
+                if (result.allRanks) {
+                    displayedRanks = result.allRanks.filter(rank => rank <= maxPosition);
+                }
+            }
+
+            // Slice the rankings/allRanks arrays to only show the top N
+            if (result.multipleRankings && displayedRanks.length > 1) {
+                const ranksList = displayedRanks.map(rank => `#${rank}`).join(', ');
+                const primaryRank = displayedRanks[0];
                 this.resultContent.innerHTML = `
                     <div class="rank-result">
                         <div class="rank-number">#${primaryRank}</div>
@@ -663,30 +682,39 @@ class KeywordRankFinder {
                             "${keyword}" appears at <strong>multiple positions</strong>${searchContext}${fuzzyText}
                         </div>
                         <div class="multiple-ranks">
-                            <div class="multiple-ranks-label">🎯 All positions found:</div>
+                            <div class="multiple-ranks-label">🎯 Positions in top ${numResultsToShow} results:</div>
                             <div class="ranks-list">${ranksList}</div>
                         </div>
                         <div class="rank-details">
-                            Found in: ${result.matchType}${totalResultsText} • ${result.allRanks.length} occurrences • Analysis took ${(searchDuration / 1000).toFixed(1)} seconds
+                            Found in: ${result.matchType}${rangeText} • ${displayedRanks.length} occurrences • Analysis took ${(searchDuration / 1000).toFixed(1)} seconds
                         </div>
                     </div>
                 `;
-            } else {
+            } else if (displayedRanks.length === 1 || result.found) {
                 // Single ranking (original display)
+                const displayRank = displayedRanks.length > 0 ? displayedRanks[0] : result.rank;
                 this.resultContent.innerHTML = `
                     <div class="rank-result">
-                        <div class="rank-number">#${result.rank}</div>
+                        <div class="rank-number">#${displayRank}</div>
                         <div class="rank-text">
-                            "${keyword}" appears at position <strong>${result.rank}</strong>${searchContext}${fuzzyText}
+                            "${keyword}" appears at position <strong>${displayRank}</strong>${searchContext}${fuzzyText}
                         </div>
                         <div class="rank-details">
-                            Found in: ${result.matchType}${totalResultsText} • Analysis took ${(searchDuration / 1000).toFixed(1)} seconds
+                            Found in: ${result.matchType}${rangeText} • Analysis took ${(searchDuration / 1000).toFixed(1)} seconds
                         </div>
                     </div>
                 `;
             }
         } else {
-            const totalResultsText = result.totalResults ? `${result.totalResults} ` : '';
+            // Create clear messaging about result range analyzed for "not found" case
+            let rangeText = '';
+            if (this.currentResultCount === 'all') {
+                rangeText = `all ${result.totalResults || 0} search results`;
+            } else {
+                const maxRange = parseInt(this.currentResultCount);
+                const actualAnalyzed = Math.min(maxRange, result.totalResults || 0);
+                rangeText = `top ${actualAnalyzed} search results (positions 1-${maxRange})`;
+            }
             
             this.resultContent.innerHTML = `
                 <div class="rank-result" style="border-left-color: #f59e0b;">
@@ -695,7 +723,7 @@ class KeywordRankFinder {
                         "${keyword}" was not found${searchContext}
                     </div>
                     <div class="rank-details">
-                        Analyzed ${totalResultsText}search results • Analysis took ${(searchDuration / 1000).toFixed(1)} seconds
+                        Analyzed ${rangeText} • Analysis took ${(searchDuration / 1000).toFixed(1)} seconds
                     </div>
                 </div>
             `;
@@ -895,20 +923,9 @@ class KeywordRankFinder {
             if (this.openInNewTab) this.openInNewTab.checked = settings.openInNewTab || false;
             if (this.saveHistory) this.saveHistory.checked = settings.saveHistory !== false;
             if (this.showPositionNumbers) this.showPositionNumbers.checked = settings.showPositionNumbers !== false;
-            if (this.autoEnhanceResults) this.autoEnhanceResults.checked = settings.autoEnhanceResults !== false;
             
-            // Load result count setting and set initial visibility
+            // Load result count setting
             await this.loadResultCountSetting();
-            
-            // Set initial visibility of result count options based on auto-enhance setting
-            const isAutoEnhanceEnabled = this.autoEnhanceResults?.checked || false;
-            if (this.resultCountOptions) {
-                if (isAutoEnhanceEnabled) {
-                    this.resultCountOptions.classList.add('hidden');
-                } else {
-                    this.resultCountOptions.classList.remove('hidden');
-                }
-            }
         } catch (error) {
             console.warn('Failed to load settings:', error);
         }
@@ -923,7 +940,6 @@ class KeywordRankFinder {
                 openInNewTab: this.openInNewTab?.checked || false,
                 saveHistory: this.saveHistory?.checked !== false,
                 showPositionNumbers: this.showPositionNumbers?.checked !== false,
-                autoEnhanceResults: this.autoEnhanceResults?.checked !== false,
                 resultCount: this.currentResultCount || 'all'
             };
             
@@ -1178,52 +1194,9 @@ class KeywordRankFinder {
     }
 
     // =========================================================================
-    // AUTO-ENHANCE RESULTS METHODS
+    // RESULT COUNT METHODS
     // =========================================================================
-    
-    async toggleAutoEnhanceResults() {
-        try {
-            const isEnabled = this.autoEnhanceResults?.checked || false;
 
-            // Show/hide result count options based on 1000 results checkbox
-            if (this.resultCountOptions) {
-                if (isEnabled) {
-                    this.resultCountOptions.classList.add('hidden');
-                } else {
-                    this.resultCountOptions.classList.remove('hidden');
-                }
-            }
-            
-            // Save setting
-            await this.saveSettings();
-            
-            // Apply to current page if it's a Google search page
-            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (tab?.url?.includes('google.com/search')) {
-                const response = await chrome.tabs.sendMessage(tab.id, {
-                    action: 'autoEnhanceResults',
-                    enabled: isEnabled
-                });
-                
-                if (response?.success) {
-                    // Show feedback
-                    this.showMessage(
-                        isEnabled 
-                            ? '✅ Auto-enhanced results enabled - Google will show 1000 results per page'
-                            : '❌ Auto-enhanced results disabled - Use result count options below',
-                        'success'
-                    );
-                } else {
-
-                }
-            }
-            
-        } catch (error) {
-            console.error('Error toggling auto-enhance results:', error);
-            this.showError('Failed to toggle auto-enhance results');
-        }
-    }
-    
     showMessage(text, type = 'info', duration = 3000) {
         // Remove existing messages
         const existingMessages = document.querySelectorAll('.message');
@@ -1250,17 +1223,11 @@ class KeywordRankFinder {
     
     getAnalysisResultCount() {
         // Determine how many results to analyze based on current settings
-        if (this.autoEnhanceResults?.checked) {
-            // When auto-enhance is enabled, use the full results limit
-            return parseInt(this.resultsLimit?.value) || 1000;
+        if (this.currentResultCount === 'all') {
+            // 'All' means analyze all available results on the current page
+            return 1000; // Set high limit to capture all available results
         } else {
-            // When auto-enhance is disabled, use the selected result count
-            if (this.currentResultCount === 'all') {
-                // 'All' means analyze all available results on the current page
-                return 1000; // Set high limit to capture all available results
-            } else {
-                return parseInt(this.currentResultCount);
-            }
+            return parseInt(this.currentResultCount);
         }
     }
     
